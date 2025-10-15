@@ -34,22 +34,6 @@ const Steps = {
 
 const OTP_LENGTH = 6;
 
-// Normalize any date to YYYY-MM-DD for <input type="date" />
-const formatDateForInput = (value) => {
-  if (!value) return "";
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value))
-    return value;
-
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-
-  return `${yyyy}-${mm}-${dd}`;
-};
-
 const Login = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(Steps.CHECK);
@@ -65,12 +49,6 @@ const Login = () => {
   // NIC section
   const [BirthDay, setBirthDay] = useState("");
   const [Gender, setGender] = useState("");
-  const [NICnumber, setNICnumber] = useState("");
-  const [NICFrontImage, setNICFrontImage] = useState(null);
-  const [NICFrontPreview, setNICFrontPreview] = useState(null);
-  const [nicError, setNicError] = useState("");
-  const [imageError, setImageError] = useState("");
-  const [nicValid, setNicValid] = useState(false);
 
   // Forgot password
   const [newPassword, setNewPassword] = useState("");
@@ -91,7 +69,7 @@ const Login = () => {
   const [otp, setOtp] = useState(new Array(OTP_LENGTH).fill(""));
   const [resendTimer, setResendTimer] = useState(0);
   const [isResending, setIsResending] = useState(false);
-  const [verifyBanner, setVerifyBanner] = useState("");
+
   const intervalRef = useRef(null);
 
   const { backend_url, getUserData, setIsuserloggedIn, userData } =
@@ -185,48 +163,6 @@ const Login = () => {
     inputRefs.current[nextIndex]?.focus();
   };
 
-  // Start verify flow: send OTP + move to Verify step with banner (from new version)
-  const startVerifyFlow = async (bannerText) => {
-    const sent = await resendOTP();
-    if (sent) {
-      if (bannerText) setVerifyBanner(bannerText);
-      setOtp(new Array(OTP_LENGTH).fill(""));
-      setStep(Steps.VERIFY_OTP);
-    }
-  };
-
-  // Resend OTP for account verification (returns boolean) - from new version
-  const resendOTP = async () => {
-    try {
-      setIsResending(true);
-      const { data } = await axios.post(
-        `${backend_url}/api/auth/send-verify-otp`,
-        { phonenumber }
-      );
-
-      if (data.success) {
-        setBirthDay(formatDateForInput(data.BirthDay));
-        setGender(data.Gender || "");
-        toast.success("OTP sent successfully!");
-        setResendTimer(2 * 60 * 1000);
-        return true;
-      } else {
-        if (data.code === "ALREADY_VERIFIED") {
-          toast.success("Your account is already verified. Please login.");
-          setStep(Steps.LOGIN);
-          return false;
-        }
-        toast.error(data.message || "Failed to send OTP.");
-        return false;
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || error.message);
-      return false;
-    } finally {
-      setIsResending(false);
-    }
-  };
-
   // Step: CHECK — check if user is registered by phone
   const checkRegister = async (e) => {
     e.preventDefault();
@@ -283,7 +219,7 @@ const Login = () => {
       password,
       BirthDay,
       Gender,
-      NICnumber,
+
       address,
       School: schoolName,
       District: district,
@@ -310,17 +246,12 @@ const Login = () => {
       formData.append("password", password);
       formData.append("BirthDay", BirthDay);
       formData.append("Gender", Gender);
-      formData.append("NIC", NICnumber);
       formData.append("Address", address);
       formData.append("School", schoolName);
       formData.append("District", district);
       formData.append("stream", stream);
       formData.append("institute", institute);
       formData.append("whatsapp", whatsapp);
-
-      if (NICFrontImage) {
-        formData.append("NICFrontImage", NICFrontImage);
-      }
 
       const { data } = await axios.post(
         `${backend_url}/api/auth/register`,
@@ -360,22 +291,10 @@ const Login = () => {
         navigate("/student/dashboard");
         toast.success("Login successful!");
       } else {
-        if (data.code === "UNVERIFIED" || data.isAccountVerifyed === false) {
-          // Show the message AND go to verification
-          const msg = data.message || "Your account is not verified";
-          toast.error(msg);
-          await startVerifyFlow(msg);
-        } else {
-          toast.error(data.message || "Login failed");
-        }
+        toast.error(data.message || "Login failed");
       }
     } catch (err) {
-      if (err.response && err.response.status === 409) {
-        // Show the message AND go to verification
-        const msg = "Your account is not verified";
-        toast.error(msg);
-        await startVerifyFlow(msg);
-      } else if (err.response?.status === 429) {
+      if (err.response?.status === 429) {
         toast.error(
           "You can enter correct credentials 5 times within 5 minutes. Try again in 5 minutes."
         );
@@ -384,37 +303,6 @@ const Login = () => {
       }
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Submit verification OTP (user can change BirthDay/Gender here) - from new version
-  const onSubmitOTP = async (e) => {
-    e.preventDefault();
-    const finalOtp = otp.join("");
-    if (finalOtp.length !== OTP_LENGTH) {
-      toast.error("Please enter a valid 6-digit OTP");
-      return;
-    }
-    if (!BirthDay || !Gender) {
-      toast.error("Please select Date of Birth and Gender");
-      return;
-    }
-    try {
-      const { data } = await axios.post(
-        `${backend_url}/api/auth/verify-phone-number`,
-        { phonenumber, finalOtp, BirthDay, Gender }
-      );
-
-      if (data.success) {
-        toast.success("OTP verified successfully! Logging you in...");
-        await getUserData(); // session is created server-side on verify
-        setIsuserloggedIn(true);
-        navigate("/student/dashboard");
-      } else {
-        toast.error(data.message || "Verification failed. Please try again.");
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || error.message);
     }
   };
 
@@ -522,139 +410,6 @@ const Login = () => {
     setStep(Steps.CHECK);
     setPassword("");
   };
-
-  // NIC Verification Logics (from old version)
-  const parseNIC = (nicRaw) => {
-    if (!nicRaw) return { error: "Please enter an NIC." };
-    const nic = nicRaw.replace(/[\s-]/g, "").toUpperCase();
-    const today = new Date();
-
-    // Old format: 9 digits + V/X
-    if (/^[0-9]{9}[VX]$/.test(nic)) {
-      const yy = parseInt(nic.slice(0, 2), 10);
-      let dayCode = parseInt(nic.slice(2, 5), 10);
-      if (isNaN(dayCode)) return { error: "Invalid NIC day code." };
-
-      let gender = "Male";
-      if (dayCode > 500) {
-        gender = "Female";
-        dayCode -= 500;
-      }
-      if (dayCode < 1 || dayCode > 366)
-        return { error: "Invalid NIC day-of-year." };
-
-      let year = 1900 + yy;
-      let birth = new Date(year, 0, dayCode);
-      if (birth > today) {
-        year = 2000 + yy;
-        birth = new Date(year, 0, dayCode);
-      }
-      if (birth > today)
-        return { error: "NIC parsed to a future date. Check the NIC." };
-
-      return { birthday: birth.toISOString().slice(0, 10), gender };
-    }
-
-    // New format: 12 digits
-    if (/^[0-9]{12}$/.test(nic)) {
-      const year = parseInt(nic.slice(0, 4), 10);
-      let dayCode = parseInt(nic.slice(4, 7), 10);
-      if (isNaN(dayCode)) return { error: "Invalid NIC day code." };
-
-      let gender = "Male";
-      if (dayCode > 500) {
-        gender = "Female";
-        dayCode -= 500;
-      }
-      if (dayCode < 1 || dayCode > 366)
-        return { error: "Invalid NIC day-of-year." };
-
-      const birth = new Date(year, 0, dayCode);
-      if (birth > today)
-        return { error: "NIC parsed to a future date. Check the NIC." };
-
-      return { birthday: birth.toISOString().slice(0, 10), gender };
-    }
-
-    return {
-      error:
-        "Unrecognized NIC format. Accepts old (9 digits + V/X) or new (12 digits).",
-    };
-  };
-
-  const handleNICBlur = () => {
-    const res = parseNIC(NICnumber.trim());
-    if (res.error) {
-      setNicError(res.error);
-      setBirthDay("");
-      setGender("");
-      setNicValid(false);
-    } else {
-      setNicError("");
-      setBirthDay(res.birthday);
-      setGender(res.gender);
-      setNicValid(true);
-    }
-  };
-
-  const handleImageChange = (e) => {
-    setImageError("");
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setNICFrontImage(null);
-      if (NICFrontPreview) {
-        URL.revokeObjectURL(NICFrontPreview);
-        setNICFrontPreview(null);
-      }
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setImageError("Please upload a valid image file (jpg, png, etc.)");
-      setNICFrontImage(null);
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setImageError("Image too large. Max 5MB allowed.");
-      setNICFrontImage(null);
-      return;
-    }
-
-    if (NICFrontPreview) URL.revokeObjectURL(NICFrontPreview);
-    const previewUrl = URL.createObjectURL(file);
-    setNICFrontPreview(previewUrl);
-    setNICFrontImage(file);
-    setImageError("");
-  };
-
-  const handleNext = (e) => {
-    e.preventDefault();
-    setNicError("");
-    setImageError("");
-
-    const nicResult = parseNIC(NICnumber.trim());
-    if (nicResult.error) {
-      setNicError(nicResult.error);
-      setNicValid(false);
-      return;
-    }
-    setBirthDay(nicResult.birthday);
-    setGender(nicResult.gender);
-    setNicValid(true);
-
-    if (!NICFrontImage) {
-      setImageError("Please upload the NIC front image.");
-      return;
-    }
-
-    setStep(Steps.Submit_Other_Details);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (NICFrontPreview) URL.revokeObjectURL(NICFrontPreview);
-    };
-  }, [NICFrontPreview]);
 
   return (
     <div className="h-screen flex overflow-hidden bg-gradient-to-br from-black via-neutral-900 to-black text-white relative">
@@ -979,181 +734,6 @@ const Login = () => {
                   Next
                 </button>
               </div>
-            </>
-          )}
-
-          {/* Step: NIC Verify */}
-          {step === Steps.NIC_Verify && (
-            <>
-              <div className="text-center mb-8">
-                <h2 className="text-4xl font-bold mb-2">NIC Verification</h2>
-                <p className="text-gray-300">
-                  Submit a valid Sri Lankan NIC to auto-fill birthday & gender
-                </p>
-              </div>
-
-              <form
-                onSubmit={handleNext}
-                className="space-y-4 max-w-xl mx-auto"
-              >
-                {/* NIC input */}
-                <div className="group">
-                  <label className="block text-sm font-semibold text-gray-200 mb-2">
-                    NIC Number
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <svg
-                        className={`w-5 h-5 transition-colors ${
-                          focusedField === "nic"
-                            ? "text-red-500"
-                            : "text-gray-400"
-                        }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
-                      </svg>
-                    </div>
-                    <input
-                      type="text"
-                      inputMode="text"
-                      placeholder="e.g. 861234567V or 200012345678"
-                      value={NICnumber}
-                      onChange={(e) => {
-                        setNICnumber(e.target.value);
-                        setNicError("");
-                        setNicValid(false);
-                        setBirthDay("");
-                        setGender("");
-                      }}
-                      onFocus={() => setFocusedField("nic")}
-                      onBlur={() => {
-                        setFocusedField("");
-                        handleNICBlur();
-                      }}
-                      className="w-full pl-12 pr-4 py-3 bg-neutral-900 border border-neutral-700 rounded-xl focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/50 text-white placeholder-neutral-500"
-                    />
-                    {nicValid && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <svg
-                          className="w-5 h-5 text-red-500"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414L8.414 15l-4.121-4.121a1 1 0 111.414-1.414L8.414 12.586l7.879-7.879a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                  {nicError && (
-                    <p className="text-sm text-red-500 mt-2">{nicError}</p>
-                  )}
-                </div>
-
-                {/* Birthday & Gender */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-200 mb-2">
-                      Birthday
-                    </label>
-                    <input
-                      type="date"
-                      value={BirthDay}
-                      onChange={(e) => setBirthDay(e.target.value)}
-                      className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-xl text-gray-300 focus:outline-none custom-date"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-200 mb-2">
-                      Gender
-                    </label>
-                    <input
-                      type="text"
-                      value={Gender}
-                      disabled
-                      className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-xl text-gray-300"
-                    />
-                  </div>
-                </div>
-
-                {/* NIC Image */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-200 mb-2">
-                    Upload NIC Front Image
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="w-full border border-neutral-700 rounded-xl bg-neutral-900 text-gray-300 py-2 px-3"
-                  />
-                  {imageError && (
-                    <p className="text-sm text-red-500 mt-2">{imageError}</p>
-                  )}
-                  {NICFrontPreview && (
-                    <div className="mt-3 flex items-center space-x-3">
-                      <img
-                        src={NICFrontPreview}
-                        alt="NIC front preview"
-                        className="w-28 h-20 object-cover rounded-md border"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-gray-200">
-                          {NICFrontImage?.name}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {(NICFrontImage?.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (NICFrontPreview)
-                              URL.revokeObjectURL(NICFrontPreview);
-                            setNICFrontPreview(null);
-                            setNICFrontImage(null);
-                            setImageError("");
-                          }}
-                          className="mt-2 inline-block text-xs text-red-500 hover:underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-5">
-                  <button
-                    type="button"
-                    onClick={() => setStep(Steps.REGISTER)}
-                    className="w-full bg-white hover:bg-gray-100 text-gray-800 font-medium py-3 rounded-xl transition"
-                  >
-                    Back to Register
-                  </button>
-                  {/* Next button */}
-                  <button
-                    type="submit"
-                    disabled={!nicValid || !NICFrontImage}
-                    className={`w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg ${
-                      !nicValid || !NICFrontImage
-                        ? "opacity-60 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    Next
-                  </button>
-                </div>
-              </form>
             </>
           )}
 
@@ -1507,118 +1087,6 @@ const Login = () => {
                 </button>
               </form>
             </>
-          )}
-
-          {/* Step: VERIFY OTP (With new version improvements) */}
-          {step === Steps.VERIFY_OTP && (
-            <div className="flex flex-col items-center justify-center">
-              <h2 className="text-2xl font-semibold text-white mb-4">
-                Verify Your Account
-              </h2>
-
-              {verifyBanner && (
-                <div className="w-full mb-4 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-sm">
-                  {verifyBanner} We just sent an OTP to {phonenumber}. Enter the
-                  code below and confirm your details.
-                </div>
-              )}
-
-              <p className="text-gray-300 mb-6 text-center max-w-sm">
-                Please enter the 6-digit code sent to {phonenumber}.
-              </p>
-
-              <form
-                onSubmit={onSubmitOTP}
-                className="flex flex-col items-center gap-6"
-              >
-                <div className="flex gap-2" onPaste={handlePaste}>
-                  {otp.map((value, index) => (
-                    <input
-                      key={index}
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={value}
-                      maxLength={1}
-                      className="w-12 h-14 text-xl text-center bg-neutral-900 border border-neutral-700 rounded-xl focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/50 text-white placeholder-neutral-500"
-                      ref={(el) => (inputRefs.current[index] = el)}
-                      onChange={(e) => handleInput(e, index)}
-                      onKeyDown={(e) => handleKeyDown(e, index)}
-                    />
-                  ))}
-                </div>
-
-                <p className="text-gray-300 text-sm text-center">
-                  ⚠️ If your details below are incorrect, you can change them
-                  now. After verification, they cannot be changed here.
-                </p>
-
-                {/* Birth Date */}
-                <div className="w-full">
-                  <label className="block text-gray-300 text-sm mb-2">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    name="birthDay"
-                    value={BirthDay || ""}
-                    onChange={(e) => setBirthDay(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/50"
-                    required
-                  />
-                </div>
-
-                {/* Gender */}
-                <div className="w-full">
-                  <label className="block text-gray-300 text-sm mb-2">
-                    Gender
-                  </label>
-                  <select
-                    name="gender"
-                    value={Gender || ""}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/50"
-                    required
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={resendOTP}
-                    disabled={resendTimer > 0 || isResending}
-                    className={`mt-4 bg-white hover:bg-gray-100 text-black font-medium px-6 py-2 rounded-md transition ${
-                      resendTimer > 0 || isResending
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    {resendTimer > 0
-                      ? `Resend OTP in ${formatTimer(resendTimer)}`
-                      : "Resend OTP"}
-                  </button>
-                  <button
-                    type="submit"
-                    className="mt-4 bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-2 rounded-md transition"
-                  >
-                    Verify OTP
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setStep(Steps.LOGIN)}
-                  className="text-sm text-gray-300 underline mt-2 mb-3"
-                >
-                  Back to Login
-                </button>
-              </form>
-            </div>
           )}
 
           {/* Step: FORGOT PASSWORD (From new version) */}
