@@ -91,14 +91,13 @@ export const getProfileData = async (req, res) => {
         lastname: user.lastname,
         phonenumber: user.phonenumber,
         Gender: user.Gender,
-        institute: user.institute,
-        stream: user.stream,
         BirthDay: user.BirthDay,
-        NIC: user.NIC,
         School: user.School,
         ExamYear: user.ExamYear,
         District: user.District,
         Address: user.Address,
+        tuteDliveryPhoennumebr1: user.tuteDliveryPhoennumebr1,
+        tuteDliveryPhoennumebr2: user.tuteDliveryPhoennumebr2,
       },
     });
   } catch (error) {
@@ -109,18 +108,34 @@ export const getProfileData = async (req, res) => {
 export const updateUserProfile = async (req, res) => {
   try {
     const userId = req.userId;
-    const { institute, stream, phonenumber, Address, School, District } =
-      req.body;
+    const {
+      name,
+      lastname,
+      Gender,
+      BirthDay,
+      ExamYear,
+      phonenumber,
+      Address,
+      tuteDliveryPhoennumebr1,
+      tuteDliveryPhoennumebr2,
+      School,
+      District,
+    } = req.body;
 
     // Update user data & set isAccountComplete = true
     const updatedUser = await userModel.findByIdAndUpdate(
       userId,
       {
+        name,
+        lastname,
+        Gender,
+        BirthDay,
+        ExamYear,
         phonenumber,
         Address,
+        tuteDliveryPhoennumebr1,
+        tuteDliveryPhoennumebr2,
         School,
-        stream,
-        institute,
         District,
       },
       { new: true, runValidators: true }
@@ -147,6 +162,7 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 // Function to generate Student ID Card
 export const generateStudentIDCard = async (req, res) => {
   try {

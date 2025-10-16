@@ -225,7 +225,9 @@ const Player = () => {
             {/* Header */}
             <div className="flex items-start gap-4 sm:gap-5 mb-8">
               <button
-                onClick={() => (navigate ? navigate("/dashboard") : null)}
+                onClick={() =>
+                  navigate ? navigate("/student/dashboard") : null
+                }
                 className="h-11 w-11 rounded-xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center hover:bg-neutral-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 text-neutral-600"
                 aria-label="Back to My Enrollments"
               >
