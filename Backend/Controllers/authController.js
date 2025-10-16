@@ -6,12 +6,12 @@ import redis from "../utils/redisClient.js";
 
 const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const allowedExamYears = [
-  "grade-6",
-  "grade-7",
-  "grade-8",
-  "grade-9",
-  "grade-10",
-  "grade-11",
+  "Grade 6",
+  "Grade 7",
+  "Grade 8",
+  "Grade 9",
+  "Grade 10",
+  "Grade 11",
 ];
 const allowedGenders = ["Male", "Female", "Other"];
 const phoneRegex = /^[0-9]{10}$/;

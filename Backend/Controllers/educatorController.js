@@ -1064,7 +1064,14 @@ export const registerUserManually = async (req, res) => {
       BirthDay,
       Gender,
     } = req.body;
-    const allowedExamYears = ["2025", "2026", "2027"];
+    const allowedExamYears = [
+      "Grade 6",
+      "Grade 7",
+      "Grade 8",
+      "Grade 9",
+      "Grade 10",
+      "Grade 11",
+    ];
     // ✅ Validate required fields
     if (
       !name ||

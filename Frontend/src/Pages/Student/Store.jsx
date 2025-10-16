@@ -13,39 +13,33 @@ import { AppContext } from "../../Context/AppContext";
 const MAIN_CATEGORIES = [
   {
     name: "Grade 6",
-    image:
-      "https://www.the74million.org/wp-content/uploads/2024/12/relevant-absenteeism-pandemic.jpg",
-    gradient: "from-sky-100 to-blue-50",
+    image: "",
+    gradient: "from-sky-300 to-blue-150",
   },
   {
     name: "Grade 7",
-    image:
-      "https://images.unsplash.com/photo-1588072432836-e10032774350?q=80&w=1400&auto=format&fit=crop",
-    gradient: "from-emerald-100 to-teal-50",
+    image: "",
+    gradient: "from-emerald-300 to-teal-150",
   },
   {
     name: "Grade 8",
-    image:
-      "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?q=80&w=1400&auto=format&fit=crop",
-    gradient: "from-fuchsia-100 to-pink-50",
+    image: "",
+    gradient: "from-fuchsia-300 to-pink-150",
   },
   {
     name: "Grade 9",
-    image:
-      "https://www.nasca.edu.in/learning-centre/wp-content/uploads/2019/10/students-future-740x493.jpg",
-    gradient: "from-orange-100 to-rose-50",
+    image: "",
+    gradient: "from-orange-300 to-rose-150",
   },
   {
     name: "Grade 10",
-    image:
-      "https://ideas.time.com/wp-content/uploads/sites/5/2013/03/college.jpg?w=720&h=480&crop=1",
-    gradient: "from-violet-100 to-indigo-50",
+    image: "",
+    gradient: "from-violet-300 to-indigo-150",
   },
   {
     name: "Grade 11",
-    image:
-      "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=1400&auto=format&fit=crop",
-    gradient: "from-amber-100 to-yellow-50",
+    image: "",
+    gradient: "from-amber-300 to-yellow-150",
   },
 ];
 
