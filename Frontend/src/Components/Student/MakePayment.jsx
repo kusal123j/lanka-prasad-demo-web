@@ -1,6 +1,6 @@
 import React from "react";
 import { CreditCard, Maximize2 } from "lucide-react";
-
+import paymentDetailsImage from "../../assets/payment-guidelines.jpg";
 const MakePayment = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-neutral-950 to-black text-neutral-100 antialiased">
@@ -15,7 +15,7 @@ const MakePayment = () => {
             </span>
           </div>
           <a
-            href="https://lasithaprasad.b-cdn.net/make-payment.jpg"
+            href={paymentDetailsImage}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-500/20 bg-neutral-900/60 text-neutral-200 hover:border-red-500/40 hover:ring-1 hover:ring-red-500/30 transition"
@@ -31,7 +31,7 @@ const MakePayment = () => {
           <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-tr from-red-600/10 via-transparent to-red-600/10" />
           <div className="p-2 sm:p-4 md:p-6">
             <img
-              src="https://lasithaprasad.b-cdn.net/make-payment.jpg"
+              src={paymentDetailsImage}
               alt="Bank payment details"
               className="mx-auto w-full max-h-[80vh] object-contain rounded-2xl select-none"
               draggable="false"

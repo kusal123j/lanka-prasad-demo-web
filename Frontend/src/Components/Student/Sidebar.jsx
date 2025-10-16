@@ -1,16 +1,16 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   Home,
   ShoppingBag,
   BookOpen,
   CreditCard,
   User,
-  Menu,
-  X,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
   LogOut,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AppContext } from "../../Context/AppContext";
@@ -18,7 +18,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 
 const SideBar = ({ isCollapsed, setIsCollapsed }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const { userData, backend_url, setUserData, setIsuserloggedIn } =
     useContext(AppContext);
@@ -27,7 +27,7 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  // Colorful accents per item
+  // Colorful accents per item (unchanged)
   const menuItems = [
     {
       name: "Dashboard",
@@ -103,6 +103,14 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
     },
   ];
 
+  const bottomMenuItems = [
+    {
+      name: "Logout",
+      icon: LogOut,
+      lfunctions: () => logout(),
+    },
+  ];
+
   const logout = async () => {
     try {
       axios.defaults.withCredentials = true;
@@ -118,74 +126,46 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
     }
   };
 
-  const bottomMenuItems = [
-    {
-      name: "Logout",
-      icon: LogOut,
-      lfunctions: logout,
-    },
-  ];
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
   const handleMenuClick = (path) => {
     navigate(path);
-    setIsMobileMenuOpen(false);
   };
+
+  const isActivePath = (path) => {
+    // startsWith gives better highlighting for nested routes
+    return currentPath.startsWith(path);
+  };
+
+  // Close the bottom sheet when route changes
+  useEffect(() => {
+    setIsMoreOpen(false);
+  }, [currentPath]);
+
+  // First two items for the mobile bottom bar
+  const primaryMobileItems = menuItems.slice(0, 2);
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <button
-        onClick={toggleMobileMenu}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white border border-slate-200 rounded-xl shadow-lg hover:bg-slate-50 transition-colors"
-      >
-        {isMobileMenuOpen ? (
-          <X className="w-6 h-6 text-slate-700" />
-        ) : (
-          <Menu className="w-6 h-6 text-slate-700" />
-        )}
-      </button>
-
-      {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
+      {/* DESKTOP SIDEBAR */}
       <aside
         className={`
-          fixed lg:fixed top-0 left-0 z-40 h-screen
-          bg-gradient-to-b from-white via-indigo-50 to-pink-50
-          backdrop-blur-xl border-r border-indigo-100
-          transition-all duration-300 ease-in-out shadow-xl lg:shadow-sm
+          hidden lg:flex fixed top-0 left-0 z-40 h-screen
           ${isCollapsed ? "w-20" : "w-72"}
-          ${
-            isMobileMenuOpen
-              ? "translate-x-0"
-              : "-translate-x-full lg:translate-x-0"
-          }
+          bg-white/80 backdrop-blur-xl
+          border-r border-indigo-100
+          shadow-[0_10px_30px_rgba(80,56,237,0.08)]
+          transition-all duration-300 ease-out
         `}
       >
         <div className="flex flex-col h-full text-slate-800">
           {/* Header */}
-          <div className="p-6 border-b border-indigo-100">
-            <div className="flex items-center justify-between cursor-pointer">
+          <div className="p-5 border-b border-indigo-100">
+            <div className="flex items-center justify-between">
               {!isCollapsed && (
                 <div
                   onClick={() => navigate("/")}
-                  className="flex items-center space-x-3"
+                  className="flex items-center space-x-3 cursor-pointer"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-sm">
                     <GraduationCap className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -196,11 +176,9 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
                   </div>
                 </div>
               )}
-
-              {/* Collapse Toggle - Desktop Only */}
               <button
-                onClick={toggleCollapse}
-                className="hidden lg:flex p-2 hover:bg-indigo-100 rounded-lg transition-colors"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="p-2 hover:bg-indigo-50 rounded-lg transition-colors"
               >
                 {isCollapsed ? (
                   <ChevronRight className="w-4 h-4 text-slate-600" />
@@ -212,28 +190,29 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+          <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
             {menuItems.map((item) => {
               const IconComponent = item.icon;
-              const isActive = currentPath === item.path;
-
+              const active = isActivePath(item.path);
               return (
                 <button
                   key={item.name}
                   onClick={() => handleMenuClick(item.path)}
                   className={`
-                    w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group
+                    w-full flex items-center gap-4 px-3 py-2.5 rounded-xl group
+                    transition-all duration-200
                     ${
-                      isActive
-                        ? `${item.bgColor} ${item.color} shadow-sm border ${item.borderColor}`
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      active
+                        ? `${item.bgColor} ${item.color} border ${item.borderColor} shadow-sm`
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     }
                   `}
                 >
                   <div
                     className={`
-                      w-10 h-10 rounded-lg flex items-center justify-center transition-colors
+                      w-10 h-10 rounded-lg flex items-center justify-center
                       bg-gradient-to-br ${item.iconFrom} ${item.iconTo}
+                      shadow-sm
                     `}
                   >
                     <IconComponent className="w-5 h-5 text-white" />
@@ -245,7 +224,7 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
                     </div>
                   )}
 
-                  {!isCollapsed && isActive && (
+                  {!isCollapsed && active && (
                     <div
                       className={`w-2 h-2 bg-gradient-to-r ${item.dotFrom} ${item.dotTo} rounded-full`}
                     />
@@ -255,12 +234,12 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
             })}
           </nav>
 
-          {/* User Profile Section */}
+          {/* User + Logout */}
           <div className="p-4 border-t border-indigo-100">
             {!isCollapsed && (
               <div className="bg-white rounded-xl p-4 mb-4 border border-indigo-100 shadow-sm">
                 <div className="flex items-center space-x-3">
-                  <div className="flex w-10 h-10 bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white rounded-full justify-center items-center cursor-pointer relative">
+                  <div className="flex w-10 h-10 bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white rounded-full justify-center items-center cursor-pointer">
                     {userData?.name?.[0]?.toUpperCase()}
                   </div>
                   <div className="flex-1">
@@ -275,23 +254,18 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
               </div>
             )}
 
-            {/* Bottom Menu Items */}
             <div className="space-y-2">
               {bottomMenuItems.map((item) => {
                 const IconComponent = item.icon;
-
                 return (
                   <button
                     key={item.name}
-                    onClick={() => {
-                      if (item.lfunctions) item.lfunctions();
-                    }}
-                    className="w-full bg-gradient-to-r from-rose-500 to-red-500 text-white flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group hover:from-rose-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-rose-300/50"
+                    onClick={() => item.lfunctions && item.lfunctions()}
+                    className="w-full bg-gradient-to-r from-rose-500 to-red-500 text-white flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:from-rose-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-rose-300/50"
                   >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center">
                       <IconComponent className="w-4 h-4 text-white" />
                     </div>
-
                     {!isCollapsed && (
                       <span className="font-medium text-sm">{item.name}</span>
                     )}
@@ -300,8 +274,8 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
               })}
 
               {!isCollapsed && (
-                <div className="text-center pt-5">
-                  <p className="inline-block px-4 py-2 bg-white text-sm rounded-xl text-slate-600 font-medium shadow-sm hover:shadow-md transition-all border border-slate-200">
+                <div className="text-center pt-4">
+                  <p className="inline-block px-4 py-2 bg-white text-sm rounded-xl text-slate-600 font-medium shadow-sm border border-slate-200">
                     Developed by{" "}
                     <span className="text-fuchsia-600 font-bold hover:underline cursor-pointer">
                       KJ Developers
@@ -313,6 +287,169 @@ const SideBar = ({ isCollapsed, setIsCollapsed }) => {
           </div>
         </div>
       </aside>
+
+      {/* MOBILE BOTTOM NAV (3 icons) */}
+      <div
+        className="
+          lg:hidden fixed bottom-0 inset-x-0 z-50
+          bg-white/90 backdrop-blur-xl border-t border-slate-200
+          shadow-[0_-6px_30px_rgba(2,6,23,0.08)]
+        "
+        style={{
+          paddingBottom:
+            "max(0px, env(safe-area-inset-bottom))" /* iOS safe area */,
+        }}
+      >
+        <nav className="grid grid-cols-3">
+          {primaryMobileItems.map((item) => {
+            const IconComponent = item.icon;
+            const active = isActivePath(item.path);
+            return (
+              <button
+                key={item.name}
+                onClick={() => handleMenuClick(item.path)}
+                className={`
+                  flex flex-col items-center justify-center gap-1 py-2.5
+                  text-xs font-medium
+                  ${active ? "text-indigo-600" : "text-slate-500"}
+                  transition-colors
+                `}
+              >
+                <div
+                  className={`
+                    w-9 h-9 rounded-xl flex items-center justify-center
+                    bg-gradient-to-br ${item.iconFrom} ${item.iconTo}
+                    ${active ? "opacity-100" : "opacity-90"}
+                    shadow-sm
+                  `}
+                >
+                  <IconComponent className="w-5 h-5 text-white" />
+                </div>
+                <span className="leading-none">{item.name.split(" ")[0]}</span>
+              </button>
+            );
+          })}
+
+          {/* More */}
+          <button
+            onClick={() => setIsMoreOpen(true)}
+            className="flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium text-slate-600"
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-900 text-white shadow-sm">
+              <MoreHorizontal className="w-5 h-5" />
+            </div>
+            <span className="leading-none">More</span>
+          </button>
+        </nav>
+      </div>
+
+      {/* MOBILE BOTTOM SHEET: all navigation (2 columns) */}
+      {isMoreOpen && (
+        <div className="lg:hidden fixed inset-0 z-[60]">
+          {/* Dim backdrop */}
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+            onClick={() => setIsMoreOpen(false)}
+          />
+
+          {/* Sheet */}
+          <div
+            className="
+              absolute bottom-0 left-0 right-0
+              bg-white rounded-t-3xl border-t border-slate-200
+              shadow-2xl
+            "
+            style={{
+              paddingBottom:
+                "calc(env(safe-area-inset-bottom) + 16px)" /* safe area */,
+            }}
+          >
+            {/* Drag handle + header */}
+            <div className="pt-3 pb-2 flex flex-col items-center">
+              <div className="h-1.5 w-12 rounded-full bg-slate-300" />
+              <div className="mt-2 px-6 w-full flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-700">
+                  Navigation
+                </div>
+                <button
+                  onClick={() => setIsMoreOpen(false)}
+                  className="p-2 rounded-lg hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5 text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Grid list */}
+            <div className="px-4 pb-2 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                {menuItems.map((item) => {
+                  const IconComponent = item.icon;
+                  const active = isActivePath(item.path);
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => handleMenuClick(item.path)}
+                      className={`
+                        w-full flex items-center gap-3 p-3 rounded-xl border
+                        ${
+                          active
+                            ? `${item.borderColor} ${item.bgColor}`
+                            : "border-slate-200 bg-white"
+                        }
+                        hover:bg-slate-50 transition-all text-left
+                      `}
+                    >
+                      <div
+                        className={`
+                          w-10 h-10 rounded-lg flex items-center justify-center
+                          bg-gradient-to-br ${item.iconFrom} ${item.iconTo} shadow-sm
+                        `}
+                      >
+                        <IconComponent className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-slate-800">
+                          {item.name}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {active ? "Current" : "Go"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {/* Logout in grid */}
+                {bottomMenuItems.map((item) => {
+                  const IconComponent = item.icon;
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => item.lfunctions && item.lfunctions()}
+                      className="
+                        w-full flex items-center gap-3 p-3 rounded-xl border
+                        border-rose-200 bg-gradient-to-r from-rose-50 to-white
+                        hover:from-rose-100 hover:to-white transition-all
+                      "
+                    >
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-rose-500 text-white shadow-sm">
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-rose-700">
+                          {item.name}
+                        </div>
+                        <div className="text-xs text-rose-500">Sign out</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

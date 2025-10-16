@@ -2,11 +2,9 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { AppContext } from "../../Context/AppContext";
-import ModernPaymentUploader from "../../Components/Student/ModernPaymentUploader";
 import Loading from "../../Components/Student/Loading";
+import paymentGuidelinesImage from "../../assets/payment-guidelines.jpg"; // fixed stray space in file name
 import {
-  CreditCard,
-  UploadCloud,
   ShieldCheck,
   AlertCircle,
   Calendar,
@@ -14,19 +12,17 @@ import {
   GraduationCap,
   Phone,
   Home,
-  Package,
-  CheckCircle2,
+  MessageCircle,
+  FileUp,
+  Edit3,
 } from "lucide-react";
 
 const formatLKR = (n) => `Rs. ${Number(n || 0).toLocaleString("en-LK")}`;
 
 const getCategoryNames = (categories, mainId, subId) => {
   if (!categories || !mainId) return { mainName: "—", subName: "—" };
-
-  // Ensure we compare string IDs
   const main = categories.find((c) => String(c._id) === String(mainId));
   const sub = main?.subCategories?.find((s) => String(s._id) === String(subId));
-
   return {
     mainName: main?.name || "—",
     subName: sub?.name || "—",
@@ -40,28 +36,17 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
 
   const [courseData, setCourseData] = useState(null);
-  const [address, setAddress] = useState(userData?.address || "");
-  const [mobile, setMobile] = useState(userData?.phonenumber || "");
-  const [secondMobile, setSecondMobile] = useState("");
-  const [deliveryBy, setDeliveryBy] = useState("slpost");
-
-  const [paymentMethod, setPaymentMethod] = useState("bank-slip"); // 'online' | 'bank-slip'
-  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isPaying, setIsPaying] = useState(false);
 
+  // Redirect if there is a pending payment for this course
   useEffect(() => {
     if (!id || !payments) return;
-
     const hasPendingPayment = payments?.some(
       (p) =>
         String(p?.course?._id) === String(id) &&
         p?.paymentStatus?.toLowerCase() === "pending"
     );
-
-    if (hasPendingPayment) {
-      navigate("/student/payments", { replace: true });
-    }
+    if (hasPendingPayment) navigate("/student/payments", { replace: true });
   }, [payments, id, navigate]);
 
   // Redirect if already enrolled
@@ -72,9 +57,7 @@ const CheckoutPage = () => {
       const cid = typeof c === "string" ? c : c?._id;
       return cid === id;
     });
-    if (alreadyEnrolled) {
-      navigate("/student/my-enrollments", { replace: true });
-    }
+    if (alreadyEnrolled) navigate("/student/my-enrollments", { replace: true });
   }, [enrolledCourses, id, navigate]);
 
   // Fetch course details
@@ -103,8 +86,6 @@ const CheckoutPage = () => {
 
   const { mainName, subName } = useMemo(() => {
     if (!courseData) return { mainName: "—", subName: "—" };
-
-    // Use _id or name safely
     return getCategoryNames(
       categories,
       courseData?.mainCategory?._id || courseData?.mainCategory,
@@ -113,136 +94,115 @@ const CheckoutPage = () => {
   }, [categories, courseData]);
 
   const basePrice = courseData?.coursePrice || 0;
-  const onlineFee = useMemo(() => {
-    if (paymentMethod !== "online") return 0;
-    // 2.5% processing fee (rounded to nearest rupee)
-    return Math.round(basePrice * 0.025);
-  }, [paymentMethod, basePrice]);
-  const totalPrice = basePrice + onlineFee;
 
-  const detailsValid = useMemo(() => {
-    const phoneRegex = /^\d{10}$/;
-    return (
-      address.trim() &&
-      phoneRegex.test(mobile) &&
-      phoneRegex.test(secondMobile) &&
-      deliveryBy.trim()
-    );
-  }, [address, mobile, secondMobile, deliveryBy]);
+  // Safely read student details from userData
+  const firstName = userData?.name || "—";
+  const lastName = userData?.lastname || "—";
+  const address = userData?.address || "—";
+  const phone1 =
+    userData?.phonenumber ||
+    userData?.phone ||
+    userData?.mobile ||
+    "Not provided";
+  const phone2 =
+    userData?.phonenumber2 ||
+    userData?.secondaryPhone ||
+    userData?.secondPhone ||
+    userData?.phone2 ||
+    "Not provided";
 
-  const openBankSlipUploader = () => {
-    if (!detailsValid) {
-      alert(
-        "Please complete all student details with valid 10-digit phone numbers before continuing."
-      );
-      return;
-    }
-    setIsUploaderOpen(true);
+  // Fix casing logic
+  const getWhatsappTargetNumber = () => {
+    const main = (mainName || "").trim().toLowerCase();
+    const lowerGrades = new Set([
+      "grade 6",
+      "grade 7",
+      "grade 8",
+      "grade 9",
+      "grade 10",
+    ]);
+    if (main === "grade 11") return "0760242357"; // Grade 11
+    if (lowerGrades.has(main)) return "0711000121"; // Grades 6–10
+    return "0711000121";
   };
 
-  const handleOnlinePayment = async () => {
-    if (!detailsValid) {
-      alert(
-        "Please complete all student details with valid 10-digit phone numbers before continuing."
-      );
-      return;
-    }
-    try {
-      setIsPaying(true);
-      // TODO: Replace with your actual online payment init API
-      // Example payload
-      const payload = {
-        courseId: courseData?._id,
-        amount: totalPrice,
-        fee: onlineFee,
-        method: "online",
-        address,
-        phonenumber1: mobile,
-        phonenumber2: secondMobile,
-        deliveryBy,
-      };
+  const toWhatsAppInternational = (localNumber) => {
+    const digits = String(localNumber).replace(/\D/g, "");
+    // Sri Lanka country code 94, remove leading 0
+    return "94" + digits.replace(/^0/, "");
+  };
 
-      // Example endpoint (adjust to your backend)
-      const { data } = await axios.post(
-        `${backend_url}/api/payments/online/initiate`,
-        payload,
-        { withCredentials: true }
-      );
+  const handleWhatsAppUpload = () => {
+    if (!courseData) return;
 
-      if (data?.success && data?.paymentUrl) {
-        window.location.href = data.paymentUrl; // redirect to gateway
-      } else if (data?.success && data?.redirect) {
-        navigate(data.redirect);
-      } else {
-        alert(data?.message || "Online payment initiation failed.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Unable to start online payment. Please try again.");
-    } finally {
-      setIsPaying(false);
-    }
+    const targetLocal = getWhatsappTargetNumber();
+    const waNumber = toWhatsAppInternational(targetLocal);
+
+    const msg = `
+Hello, I would like to submit my bank slip.
+
+Course: ${courseData?.courseTitle || "—"}
+Category: ${mainName}${subName && subName !== "—" ? ` • ${subName}` : ""}
+Month: ${courseData?.month || "—"}
+Amount: ${formatLKR(basePrice)}
+
+Student: ${firstName} ${lastName}
+Delivery Address: ${address}
+Primary Phone: ${phone1}
+Secondary Phone: ${phone2}
+
+I will attach the bank slip image here. Thank you!
+    `.trim();
+
+    const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   if (loading) return <Loading />;
 
   if (!courseData)
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="min-h-screen bg-white text-gray-700 flex items-center justify-center">
         Class Not Found
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-[#0b0b0b] text-white">
-      {isUploaderOpen && (
-        <ModernPaymentUploader
-          payment={{
-            courseId: courseData._id,
-            amount: basePrice, // no fee for bank slip
-            address,
-            phonenumber1: mobile,
-            phonenumber2: secondMobile,
-            deliveryBy,
-          }}
-          onClose={() => setIsUploaderOpen(false)}
-        />
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-sky-50 text-gray-800">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-6 flex items-center gap-2 text-sm text-emerald-700">
+          <ShieldCheck className="w-5 h-5 text-emerald-600" />
+          <span>Secure Checkout</span>
+        </div>
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column */}
+          {/* Main content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Course Header */}
-            <section className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/70 to-black shadow-xl p-6">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <ShieldCheck className="w-5 h-5 text-red-500" />
-                <span className="text-sm">Secure Checkout</span>
-              </div>
-
-              <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight">
+            <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
                 {courseData.courseTitle}
               </h1>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-600/10 text-red-400 text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100">
                   <GraduationCap className="w-3.5 h-3.5" />
                   {mainName}
                 </span>
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-600/10 text-red-400 text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-medium border border-sky-100">
                   <Tag className="w-3.5 h-3.5" />
                   {subName}
                 </span>
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-600/10 text-red-400 text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium border border-amber-100">
                   <Calendar className="w-3.5 h-3.5" />
                   {courseData.month || "Month Not Set"}
                 </span>
               </div>
 
-              <div className="mt-6 text-white bg-gradient-to-r from-yellow-400/10 to-orange-400/10 border border-yellow-400/30 rounded-xl p-4">
+              <div className="mt-6 rounded-xl border border-gray-200 bg-gradient-to-r from-rose-50 to-orange-50 p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5" />
-                  <div className="text-sm leading-relaxed">
+                  <AlertCircle className="w-5 h-5 text-rose-500 mt-0.5" />
+                  <div className="text-sm leading-relaxed text-gray-700">
                     <div
                       className="course-description-content"
                       dangerouslySetInnerHTML={{
@@ -251,273 +211,128 @@ const CheckoutPage = () => {
                     />
                   </div>
                 </div>
-
-                {/* Inline style override for any HTML injected inside */}
-                <style jsx>{`
-                  .course-description-content,
-                  .course-description-content * {
-                    color: white !important;
-                  }
-                `}</style>
               </div>
+              <style>{`
+                .course-description-content, .course-description-content * {
+                  color: #374151 !important; /* gray-700 */
+                }
+              `}</style>
             </section>
 
-            {/* Student Details */}
-            <section className="rounded-2xl bg-zinc-950 border border-zinc-800 p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold">Student Details</h2>
-                <span className="text-xs font-medium text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-full inline-flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Encrypted
-                </span>
+            {/* Payment Guidelines - full width */}
+            <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-gray-700">
+                  Payment Guidelines
+                </p>
+                <p className="text-xs text-gray-500">
+                  Follow these steps when sending your bank slip via WhatsApp.
+                </p>
               </div>
-
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-zinc-300 font-medium">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    value={userData?.name}
-                    readOnly
-                    className="w-full mt-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-zinc-300 font-medium">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={userData?.lastname}
-                    readOnly
-                    className="w-full mt-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
+              <div className="overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
+                <img
+                  src={paymentGuidelinesImage}
+                  alt="Payment Guidelines"
+                  className="w-full h-auto object-contain"
+                  loading="lazy"
+                />
               </div>
-
-              <div className="mt-4">
-                <label className="block text-sm text-zinc-300 font-medium">
-                  Address
-                </label>
-                <div className="relative">
-                  <Home className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={address}
-                    required
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Street, City, ZIP"
-                    className="w-full pl-9 mt-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-zinc-300 font-medium">
-                    Mobile Number
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      value={mobile}
-                      required
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        if (value.length <= 10) setMobile(value);
-                      }}
-                      placeholder="07XXXXXXXX"
-                      maxLength={10}
-                      className="w-full pl-9 mt-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-zinc-300 font-medium">
-                    Second Mobile
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      value={secondMobile}
-                      required
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        if (value.length <= 10) setSecondMobile(value);
-                      }}
-                      placeholder="07XXXXXXXX"
-                      maxLength={10}
-                      className="w-full pl-9 mt-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm text-zinc-300 font-medium">
-                  Delivery Method
-                </label>
-                <div className="relative">
-                  <Package className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <select
-                    value={deliveryBy}
-                    onChange={(e) => setDeliveryBy(e.target.value)}
-                    className="w-full pl-9 mt-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="slpost">SL Post</option>
-                    <option value="courier">Courier</option>
-                  </select>
-                </div>
-              </div>
-            </section>
-
-            {/* Payment Method */}
-            <section className="rounded-2xl bg-zinc-950 border border-zinc-800 p-6">
-              <h3 className="text-xl font-semibold">Choose Payment Method</h3>
-
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Online Payment */}
-                <button
-                  type="button"
-                  disabled
-                  onClick={() => setPaymentMethod("online")}
-                  className={`group text-left rounded-xl p-4 border transition-all ${
-                    paymentMethod === "online"
-                      ? "border-red-600 bg-red-600/10 shadow-[0_0_0_3px_rgba(220,38,38,.2)]"
-                      : "border-zinc-800 bg-black/40 hover:border-zinc-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`rounded-lg p-2 ${
-                          paymentMethod === "online"
-                            ? "bg-red-600/20"
-                            : "bg-zinc-800"
-                        }`}
-                      >
-                        <CreditCard className="w-5 h-5 text-red-500" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Online Payment</p>
-                        <p className="text-xs text-zinc-400">
-                          Fast and secure checkout
-                        </p>
-                      </div>
-                    </div>
-                    {paymentMethod === "online" && (
-                      <CheckCircle2 className="w-5 h-5 text-green-400" />
-                    )}
-                  </div>
-                </button>
-
-                {/* Bank Slip */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("bank-slip")}
-                  className={`group text-left rounded-xl p-4 border transition-all ${
-                    paymentMethod === "bank-slip"
-                      ? "border-red-600 bg-red-600/10 shadow-[0_0_0_3px_rgba(220,38,38,.2)]"
-                      : "border-zinc-800 bg-black/40 hover:border-zinc-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`rounded-lg p-2 ${
-                          paymentMethod === "bank-slip"
-                            ? "bg-red-600/20"
-                            : "bg-zinc-800"
-                        }`}
-                      >
-                        <UploadCloud className="w-5 h-5 text-red-500" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Bank Slip Upload</p>
-                        <p className="text-xs text-zinc-400">
-                          Upload your payment slip
-                        </p>
-                      </div>
-                    </div>
-                    {paymentMethod === "bank-slip" && (
-                      <CheckCircle2 className="w-5 h-5 text-green-400" />
-                    )}
-                  </div>
-                </button>
-              </div>
-
-              {paymentMethod === "online" && (
-                <div className="mt-4 text-sm text-zinc-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-400 mt-0.5" />
-                  <p>
-                    A 2.5% payment processing fee is added because you selected
-                    Online Payment.
-                  </p>
-                </div>
-              )}
             </section>
           </div>
 
-          {/* Right Column - Summary */}
+          {/* Summary + WhatsApp CTA */}
           <aside className="lg:col-span-1">
-            <div className="sticky top-6 rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl">
-              <h3 className="text-lg font-semibold">Order Summary</h3>
+            <div className="space-y-6">
+              <div className="lg:sticky lg:top-6 rounded-2xl border border-gray-200 bg-white shadow-lg p-6">
+                <h3 className="text-lg font-semibold">Order Summary</h3>
 
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Class Price</span>
-                  <span className="font-medium">{formatLKR(basePrice)}</span>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between text-gray-700">
+                    <span>Payment Amount</span>
+                    <span className="font-semibold">
+                      {formatLKR(basePrice)}
+                    </span>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-xs text-gray-500">
+                      You’ll be redirected to WhatsApp to share your bank slip
+                      image and order details with our support.
+                    </p>
+                  </div>
                 </div>
 
-                {paymentMethod === "online" && (
-                  <div className="flex items-center justify-between text-zinc-300">
-                    <span>Processing Fee (2.5%)</span>
-                    <span className="font-medium">{formatLKR(onlineFee)}</span>
-                  </div>
-                )}
+                <button
+                  onClick={handleWhatsAppUpload}
+                  className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-semibold text-white shadow-md bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  Upload Slip via WhatsApp
+                </button>
 
-                <div className="border-t border-zinc-800 pt-3 flex items-center justify-between">
-                  <span className="text-zinc-200 font-semibold">Total</span>
-                  <span className="text-3xl font-extrabold text-red-500">
-                    {formatLKR(totalPrice)}
-                  </span>
+                <div className="mt-3 flex items-start gap-2 text-xs text-gray-500">
+                  <FileUp className="w-4 h-4 mt-0.5 text-gray-400" />
+                  <p>
+                    After WhatsApp opens, attach your bank slip image and send
+                    the message. We’ll verify and confirm your enrollment.
+                  </p>
                 </div>
               </div>
 
-              <button
-                onClick={
-                  paymentMethod === "online"
-                    ? handleOnlinePayment
-                    : openBankSlipUploader
-                }
-                disabled={!detailsValid || isPaying}
-                className={`mt-6 w-full inline-flex items-center justify-center rounded-xl px-6 py-3 font-semibold shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all ${
-                  !detailsValid || isPaying
-                    ? "bg-zinc-700 cursor-not-allowed text-zinc-300"
-                    : "bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700"
-                }`}
-              >
-                {paymentMethod === "online" ? (
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
-                    {isPaying
-                      ? "Processing..."
-                      : `Pay ${formatLKR(totalPrice)} Online`}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <UploadCloud className="w-5 h-5" />
-                    Upload Bank Slip & Enroll
-                  </div>
-                )}
-              </button>
+              {/* Tute Delivery card (now spaced from the summary card) */}
+              <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Tute Delivery</h2>
+                  <button
+                    onClick={() => navigate("/student/profile")}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-700 hover:text-indigo-800 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-100"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Change info
+                  </button>
+                </div>
 
-              <p className="mt-3 text-xs text-zinc-400">
-                By continuing, you agree to our terms & privacy policy.
-              </p>
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      Registered Phone Number
+                    </div>
+                    <p className="mt-1 font-medium">{phone1}</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">First Name</p>
+                      <p className="font-medium">{firstName}</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                      <p className="text-xs text-gray-500">Last Name</p>
+                      <p className="font-medium">{lastName}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Home className="w-4 h-4" />
+                      Tute Delivery Address
+                    </div>
+                    <p className="mt-1 font-medium">{address}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Phone className="w-4 h-4" />
+                      Tute Delivery Phone Number
+                    </div>
+                    <p className="mt-1 font-medium">{phone1}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Phone className="w-4 h-4" />
+                      Tute Delivery Second Phone Number
+                    </div>
+                    <p className="mt-1 font-medium">{phone2}</p>
+                  </div>
+                </div>
+              </section>
             </div>
           </aside>
         </div>

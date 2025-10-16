@@ -14,7 +14,7 @@ const MAIN_CATEGORIES = [
   {
     name: "Grade 6",
     image:
-      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1400&auto=format&fit=crop",
+      "https://www.the74million.org/wp-content/uploads/2024/12/relevant-absenteeism-pandemic.jpg",
     gradient: "from-sky-100 to-blue-50",
   },
   {
@@ -32,13 +32,13 @@ const MAIN_CATEGORIES = [
   {
     name: "Grade 9",
     image:
-      "https://images.unsplash.com/photo-1517976487492-576ea6b2936d?q=80&w=1400&auto=format&fit=crop",
+      "https://www.nasca.edu.in/learning-centre/wp-content/uploads/2019/10/students-future-740x493.jpg",
     gradient: "from-orange-100 to-rose-50",
   },
   {
     name: "Grade 10",
     image:
-      "https://images.unsplash.com/photo-1596495578065-8ac4705eeea6?q=80&w=1400&auto=format&fit=crop",
+      "https://ideas.time.com/wp-content/uploads/sites/5/2013/03/college.jpg?w=720&h=480&crop=1",
     gradient: "from-violet-100 to-indigo-50",
   },
   {
@@ -230,7 +230,7 @@ const Store = () => {
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-800">
       {/* Top header */}
       <header className="sticky top-0 z-10 backdrop-blur-sm bg-white/75 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className=" max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {selectedMain ? (
               <button
@@ -252,18 +252,10 @@ const Store = () => {
               </p>
             </div>
           </div>
-
-          {selectedMain ? (
-            <div className="hidden sm:block">
-              <div className="text-sm text-slate-500">
-                Light theme • Colorful accents
-              </div>
-            </div>
-          ) : null}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <main className=" max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* MAIN CATEGORIES (Grades) */}
         {!selectedMain && (
           <>
@@ -318,29 +310,6 @@ const Store = () => {
         {/* SUBCATEGORIES + MONTHS */}
         {selectedMain && (
           <>
-            <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex-1 min-w-[220px]">
-                <label className="block text-sm text-slate-600 mb-1">
-                  Search subjects
-                </label>
-                <div className="relative">
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Type to filter..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
-                  />
-                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
-                    🔎
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-sm text-slate-500">
-                Grade: <span className="font-medium">{selectedMain}</span>
-              </div>
-            </div>
-
             {/* Error */}
             {fetchError ? (
               <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700">
