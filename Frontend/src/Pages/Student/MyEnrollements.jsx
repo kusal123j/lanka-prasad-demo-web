@@ -3,26 +3,36 @@ import EnrollmentsCard from "../../Components/Student/EnrollmentsCard";
 import { AppContext } from "../../Context/AppContext";
 
 const MyEnrollements = () => {
-  const { enrolledCourses } = useContext(AppContext);
+  const { enrolledCourses = [] } = useContext(AppContext);
+  const hasEnrollments =
+    Array.isArray(enrolledCourses) && enrolledCourses.length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-neutral-900 text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16">
         <header className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-semibold">My Enrollments</h1>
-          <p className="text-neutral-400 mt-2">All of your enrolled classes</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+            My Enrollments
+          </h1>
+          <p className="text-slate-600 mt-2">All of your enrolled classes</p>
+          <div className="mt-4 h-px bg-gradient-to-r from-sky-200 via-teal-200 to-cyan-200" />
         </header>
-        {enrolledCourses.length === 0 ? (
-          <div className="text-center text-white/80 text-lg mt-16">
-            You haven't enrolled in any courses yet.
+
+        {!hasEnrollments ? (
+          <div className="mt-16">
+            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+              <p className="text-slate-600 text-lg">
+                You haven't enrolled in any courses yet.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {enrolledCourses.map((enrollment, index) => (
               <EnrollmentsCard
+                key={index}
                 course={enrollment.course}
                 expiresAt={enrollment.expiresAt}
-                key={index}
               />
             ))}
           </div>

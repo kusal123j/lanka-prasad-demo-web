@@ -105,3 +105,69 @@ export const getCourseById = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+export const getCoursesByMainCategory = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { mainCategory } = req.body;
+
+    if (!mainCategory) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Main category is required" });
+    }
+
+    // 1️⃣ Validate user
+    const user = await userModel.findById(userId);
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+
+    // 2️⃣ Create cache key
+    const cacheKey = `courses_maincategory_${mainCategory}`;
+
+    // 3️⃣ Check Redis cache first
+    const cachedCourses = await redis.get(cacheKey);
+    if (cachedCourses) {
+      return res.status(200).json({
+        success: true,
+        fromCache: true,
+        courses: JSON.parse(cachedCourses),
+      });
+    }
+
+    // 4️⃣ Find the main category in DB
+    const mainCatDoc = await Category.findOne({
+      name: mainCategory,
+      type: "main",
+    });
+
+    if (!mainCatDoc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Main category not found" });
+    }
+
+    // 5️⃣ Get all published courses under this main category
+    const courses = await Course.find({
+      isPublished: true,
+      mainCategory: mainCatDoc._id,
+    }).select([
+      "-enrolledStudents",
+      "-courseContent",
+      "-courseResources",
+      "-zoomLink",
+      "-youtubeLive",
+      "-attendance",
+    ]);
+
+    // 6️⃣ Cache the data for 1 hour
+    await redis.set(cacheKey, JSON.stringify(courses), { EX: 3600 });
+
+    // 7️⃣ Send response
+    res.status(200).json({ success: true, fromCache: false, courses });
+  } catch (error) {
+    console.error("Error fetching courses by main category:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

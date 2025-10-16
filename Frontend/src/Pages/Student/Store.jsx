@@ -144,9 +144,8 @@ const Store = () => {
   );
 
   const subCount = subCategories?.length || 0;
-  const IsNICVerify = userData?.IsNICVerified === "completed";
 
-  return IsNICVerify ? (
+  return (
     <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-neutral-900 text-white">
       {/* Header */}
       <div className="relative">
@@ -395,8 +394,6 @@ const Store = () => {
         )}
       </AnimatePresence>
     </div>
-  ) : (
-    <NICVerificationCard />
   );
 };
 

@@ -504,9 +504,6 @@ const Login = () => {
           {step === Steps.CHECK && (
             <div className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-xl rounded-3xl p-7">
               <div className="text-center mb-8">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-blue-100 via-emerald-100 to-amber-100 text-slate-700 text-xs font-semibold mb-3">
-                  <span>Step 1 of 3</span>
-                </div>
                 <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 via-emerald-600 to-amber-600 bg-clip-text text-transparent">
                   Get Started
                 </h2>
