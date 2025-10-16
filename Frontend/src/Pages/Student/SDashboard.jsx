@@ -1,37 +1,31 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
-  Calendar,
-  Clock,
   Award,
-  Bell,
-  Search,
-  User,
-  Settings,
-  PlayCircle,
-  FileText,
   BarChart3,
-  ChevronRight,
-  Star,
-  TrendingUp,
+  Calendar,
+  Settings,
   Download,
   MessageCircle,
-  X,
-  Copy,
   Truck,
   MapPin,
   Package,
   ExternalLink,
   ArrowLeft,
+  Copy,
+  X,
 } from "lucide-react";
+
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, Pagination } from "swiper/modules";
 import "swiper/css";
-import "swiper/css/autoplay";
-import GraphWidget from "../../Components/Student/GraphWidget";
+import "swiper/css/pagination";
+
 import { AppContext } from "../../Context/AppContext";
 import toast from "react-hot-toast";
 
 /* =============================
-   Tute Tracking Modal (List + Detail)
+   Tute Tracking Modal (Light Theme)
    ============================= */
 const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
   const [selectedIndex, setSelectedIndex] = useState(null); // null = list view
@@ -93,15 +87,15 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-gradient-to-b from-zinc-950 to-black text-white border border-red-500/30 shadow-2xl sm:rounded-2xl relative overflow-hidden h-[92vh] sm:h-auto sm:max-h-[85vh] flex flex-col"
+        className="w-full max-w-3xl bg-white text-slate-900 border border-slate-200 shadow-2xl sm:rounded-2xl relative overflow-hidden h-[92vh] sm:h-auto sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/10 bg-black/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 bg-gradient-to-b from-white to-slate-50">
           <div className="flex items-center gap-3">
             {selected ? (
               <button
@@ -110,13 +104,13 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
                   setShowFrame(false);
                   setFrameLoaded(false);
                 }}
-                className="p-2 rounded-lg hover:bg-white/10 transition"
+                className="p-2 rounded-lg hover:bg-slate-100 transition"
                 aria-label="Back to all shipments"
               >
-                <ArrowLeft className="w-5 h-5 text-zinc-300" />
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
               </button>
             ) : (
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-600 to-fuchsia-600 flex items-center justify-center">
                 <Truck className="w-5 h-5 text-white" />
               </div>
             )}
@@ -124,7 +118,7 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
               <h4 className="text-lg font-semibold">
                 {selected ? "Shipment details" : "Your Tute Shipments"}
               </h4>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-slate-500">
                 {selected
                   ? "Tracking number: " + trackingNumber
                   : "Click a shipment to track"}
@@ -134,7 +128,7 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 text-zinc-300 hover:text-white transition"
+            className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-800 transition"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -146,11 +140,11 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
           {/* Empty state */}
           {shipments.length === 0 && !selected && (
             <div className="h-full min-h-[40vh] flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-                <Truck className="w-6 h-6 text-zinc-300" />
+              <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center mb-4">
+                <Truck className="w-6 h-6 text-slate-500" />
               </div>
               <h5 className="text-lg font-semibold">No tracking available</h5>
-              <p className="text-zinc-400 text-sm mt-1">
+              <p className="text-slate-500 text-sm mt-1">
                 Your tute shipments with tracking will appear here.
               </p>
             </div>
@@ -162,7 +156,7 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
               {shipments.map((p, idx) => (
                 <div
                   key={p._id || idx}
-                  className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-rose-500/40 hover:shadow hover:shadow-red-900/20 transition cursor-pointer"
+                  className="p-4 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md transition cursor-pointer"
                   onClick={() => {
                     setSelectedIndex(idx);
                     setShowFrame(false);
@@ -174,20 +168,20 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-zinc-300 text-xs">
-                        <Package className="w-4 h-4 text-rose-400" />
+                      <div className="flex items-center gap-2 text-slate-500 text-xs">
+                        <Package className="w-4 h-4 text-indigo-500" />
                         <span>Class</span>
                       </div>
-                      <div className="font-medium text-white truncate">
+                      <div className="font-medium text-slate-900 truncate">
                         {p?.course?.courseTitle || "Course"}
                       </div>
-                      <div className="text-xs text-zinc-400 mt-1">
+                      <div className="text-xs text-slate-500 mt-1">
                         {formatDate(p?.createdAt)}
                       </div>
                     </div>
 
                     <div className="sm:w-72">
-                      <div className="text-xs text-zinc-300">
+                      <div className="text-xs text-slate-500">
                         Tracking Number
                       </div>
                       <div className="font-semibold break-all">
@@ -197,17 +191,17 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
                   </div>
 
                   <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-2 text-zinc-300">
-                      <MapPin className="w-4 h-4 text-rose-400" />
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <MapPin className="w-4 h-4 text-indigo-500" />
                       <span className="text-sm">Tute delivered for:</span>
-                      <span className="text-sm text-white font-medium break-all">
+                      <span className="text-sm text-slate-900 font-medium break-all">
                         {p?.address || "Not provided"}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
-                        className="px-3 py-2 rounded-lg border border-white/10 bg-black/40 text-white text-sm hover:border-rose-500/40 transition"
+                        className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm hover:border-indigo-300 transition"
                         onClick={(e) => {
                           e.stopPropagation();
                           copyTracking(p?.trackingNumber);
@@ -220,7 +214,7 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
                       </button>
 
                       <button
-                        className="px-3 py-2 rounded-lg bg-gradient-to-r from-red-700 via-rose-600 to-red-700 text-white text-sm font-medium hover:opacity-95 transition"
+                        className="px-3 py-2 rounded-lg bg-gradient-to-r from-indigo-600 via-sky-500 to-fuchsia-600 text-white text-sm font-medium hover:opacity-95 transition"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedIndex(idx);
@@ -241,31 +235,31 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
           {selected && (
             <div className="space-y-5">
               <div className="grid md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-2 text-zinc-300 mb-1">
-                    <Package className="w-4 h-4 text-rose-400" />
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                    <Package className="w-4 h-4 text-indigo-500" />
                     <span className="text-sm">Class</span>
                   </div>
-                  <div className="text-white font-medium">
+                  <div className="text-slate-900 font-medium">
                     {selected?.course?.courseTitle || "Course"}
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-2 text-zinc-300 mb-1">
-                    <MapPin className="w-4 h-4 text-rose-400" />
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                    <MapPin className="w-4 h-4 text-indigo-500" />
                     <span className="text-sm">Tute delivered for</span>
                   </div>
-                  <div className="text-white font-medium break-words">
+                  <div className="text-slate-900 font-medium break-words">
                     {selected?.address || "Not provided"}
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="p-4 rounded-xl bg-white border border-slate-200 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm text-zinc-300">Tracking Number</div>
-                  <div className="text-white font-semibold mt-0.5 break-all">
+                  <div className="text-sm text-slate-600">Tracking Number</div>
+                  <div className="text-slate-900 font-semibold mt-0.5 break-all">
                     {trackingNumber || "Not available"}
                   </div>
                 </div>
@@ -274,17 +268,17 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
                   <button
                     onClick={() => copyTracking(trackingNumber)}
                     disabled={!trackingNumber}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-black/40 text-white disabled:opacity-40 hover:border-rose-500/40 hover:shadow hover:shadow-red-900/20 transition"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 disabled:opacity-40 hover:border-indigo-300 transition"
                   >
                     <Copy className="w-4 h-4" />
                     {copied ? "Copied!" : "Copy"}
                   </button>
 
                   <a
-                    href="https://www.promptxpress.lk/TrackItem.aspx#"
+                    href="https://slpmail.slpost.gov.lk/track/index.php"
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-black/40 text-white hover:border-rose-500/40 hover:shadow hover:shadow-red-900/20 transition"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 transition"
                   >
                     <ExternalLink className="w-4 h-4" />
                     Open in new tab
@@ -295,34 +289,34 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
               <button
                 onClick={handleTrackNow}
                 disabled={!trackingNumber}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-red-700 via-rose-600 to-red-700 text-white font-semibold tracking-wide hover:opacity-95 disabled:opacity-40 transition"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-sky-500 to-fuchsia-600 text-white font-semibold tracking-wide hover:opacity-95 disabled:opacity-40 transition"
               >
                 <Truck className="w-5 h-5" />
                 Track Now
               </button>
 
-              <div className="w-full h-px bg-white/10" />
+              <div className="w-full h-px bg-slate-200" />
 
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-zinc-300">
+                <span className="text-sm font-medium text-slate-600">
                   👉 Scroll down halfway on the page, paste your 📦 Tracking
                   Number in the box, and tap 🔍 “View Your Status”!
                 </span>
               </div>
 
               {showFrame && (
-                <div className="relative mt-2 h-[62vh] sm:h-[520px] rounded-xl overflow-hidden border border-white/10 bg-black/60">
+                <div className="relative mt-2 h-[62vh] sm:h-[520px] rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
                   {!frameLoaded && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex items-center gap-3 text-zinc-300">
-                        <div className="w-5 h-5 rounded-full border-2 border-zinc-500 border-top-transparent animate-spin" />
-                        <span>Loading Prompt Xpress…</span>
+                      <div className="flex items-center gap-3 text-slate-600">
+                        <div className="w-5 h-5 rounded-full border-2 border-slate-400 border-t-transparent animate-spin" />
+                        <span>Loading SLP Mail Tracking...</span>
                       </div>
                     </div>
                   )}
                   <iframe
-                    title="Prompt Xpress Tracker"
-                    src="https://www.promptxpress.lk/TrackItem.aspx#"
+                    title="SLP Mail Tracker"
+                    src="https://slpmail.slpost.gov.lk/track/index.php"
                     className="w-full h-full"
                     onLoad={() => setFrameLoaded(true)}
                     referrerPolicy="no-referrer-when-downgrade"
@@ -331,7 +325,7 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
               )}
 
               {showFrame && (
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-slate-500">
                   Tracking number copied. Paste it in the input on the page.
                 </p>
               )}
@@ -340,10 +334,10 @@ const TuteTrackingModal = ({ isOpen, onClose, shipments = [] }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-4 sm:px-6 py-4 border-t border-white/10 bg-black/40 flex items-center justify-end">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:border-rose-500/40 transition"
+            className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 hover:border-indigo-300 transition"
           >
             Close
           </button>
@@ -369,11 +363,9 @@ const SDashboard = () => {
       });
       setTime(formattedTime);
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // All shipments with a real trackingNumber
   const shipments = useMemo(() => {
     if (!Array.isArray(payments)) return [];
     return payments
@@ -383,50 +375,44 @@ const SDashboard = () => {
       );
   }, [payments]);
 
-  const achievements = [
-    { id: 1, title: "Name", description: userData?.name, icon: "🙍" },
+  // Replace with your own adverts (images and optional links)
+  const adverts = [
+    {
+      id: 1,
+      src: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ0pHAuLtTux9Z_qwc56dRniCy4GD7fPk5XAw&s",
+      title: "Enroll now and save 20%",
+      href: "#",
+    },
     {
       id: 2,
-      title: "Phone Number",
-      description: userData?.phonenumber,
-      icon: "📞",
+      src: "https://img.freepik.com/free-psd/e-commerce-facebook-ad-template-design_23-2149586406.jpg",
+      title: "New classes are live!",
+      href: "#",
     },
     {
       id: 3,
-      title: "Exam Year",
-      description: userData?.mainCategory,
-      icon: "📅",
-    },
-    {
-      id: 4,
-      title: "NIC",
-      description: userData?.NIC,
-      icon: "🪪",
-    },
-    {
-      id: 5,
-      title: "Address",
-      description: userData?.address || "Not Provided",
-      icon: "🏠",
+      src: "https://i0.wp.com/www.themediaant.com/blog/wp-content/uploads/2023/01/6-Powerful-E-commerce-Advertising-Strategies.jpeg?w=512&ssl=1",
+      title: "Download our mobile app",
+      href: "#",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-neutral-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-indigo-50 text-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <div className="bg-gradient-to-r from-red-700 via-rose-600 to-red-800 rounded-2xl p-8 text-white relative overflow-hidden">
-            <div className="absolute inset-0 bg-black/30"></div>
+          <div className="bg-gradient-to-r from-indigo-600 via-sky-500 to-fuchsia-500 rounded-2xl p-8 text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-black/10"></div>
             <div className="relative z-10">
               <h2 className="text-3xl font-bold mb-2">
                 Welcome back,{" "}
                 {userData?.name || (
-                  <span className="h-4 w-30 inline-block bg-white/20 rounded animate-pulse"></span>
+                  <span className="h-4 w-30 inline-block bg-white/30 rounded animate-pulse"></span>
                 )}
                 ! 👋
               </h2>
-              <p className="text-white/80 mb-6">
+              <p className="text-white/90 mb-6">
                 Ready to continue your learning journey today?
               </p>
 
@@ -437,12 +423,12 @@ const SDashboard = () => {
                       <BookOpen className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-white/70">Student ID</p>
+                      <p className="text-sm text-white/80">Student ID</p>
                       <p className="text-2xl font-bold">
                         {userData?.studentId ? (
                           userData.studentId
                         ) : (
-                          <span className="inline-block h-6 w-24 bg-white/20 rounded animate-pulse"></span>
+                          <span className="inline-block h-6 w-24 bg-white/30 rounded animate-pulse"></span>
                         )}
                       </p>
                     </div>
@@ -455,12 +441,12 @@ const SDashboard = () => {
                       <Award className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-white/70">Enrolled Courses</p>
+                      <p className="text-sm text-white/80">Enrolled Courses</p>
                       <p className="text-2xl font-bold">
                         {enrolledCourses ? (
                           enrolledCourses.length
                         ) : (
-                          <span className="h-6 w-10 inline-block bg-white/20 rounded animate-pulse"></span>
+                          <span className="h-6 w-10 inline-block bg-white/30 rounded animate-pulse"></span>
                         )}
                       </p>
                     </div>
@@ -469,26 +455,22 @@ const SDashboard = () => {
 
                 <div
                   className="relative group overflow-hidden rounded-2xl p-4 md:p-5 cursor-pointer
-             bg-gradient-to-br from-zinc-950 via-zinc-900 to-black
-             border border-white/10 hover:border-rose-500/40
-             hover:shadow-lg hover:shadow-red-900/20
-             transition focus:outline-none focus:ring-2 focus:ring-rose-500"
+             bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md
+             transition focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
                   onClick={() => setShowTuteModal(true)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && setShowTuteModal(true)}
                   title="View and track your tute shipments"
                 >
-                  {/* subtle glow accent */}
-                  <div className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full bg-rose-600/10 blur-2xl group-hover:bg-rose-600/20 transition" />
-
+                  <div className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full bg-indigo-500/10 blur-2xl group-hover:bg-indigo-500/20 transition" />
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div>
-                        <p className="text-xs uppercase tracking-wider text-zinc-400">
+                        <p className="text-xs uppercase tracking-wider text-slate-500">
                           Tute Tracking
                         </p>
-                        <h4 className="text-base sm:text-lg font-semibold text-white">
+                        <h4 className="text-base sm:text-lg font-semibold text-slate-900">
                           View & Track
                         </h4>
                       </div>
@@ -509,8 +491,8 @@ const SDashboard = () => {
                           className={
                             "shrink-0 px-3 py-1 rounded-full text-xs font-medium border " +
                             (count > 0
-                              ? "bg-rose-600/15 text-rose-200 border-rose-500/30"
-                              : "bg-white/5 text-zinc-300 border-white/10")
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              : "bg-slate-50 text-slate-600 border-slate-200")
                           }
                         >
                           {count > 0 ? `${count} active` : "No tracking"}
@@ -526,10 +508,10 @@ const SDashboard = () => {
                       <BarChart3 className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-white/70">Time</p>
+                      <p className="text-sm text-white/80">Time</p>
                       <p className="text-2xl font-bold">
                         {time || (
-                          <span className="inline-block h-6 w-24 bg-white/20 rounded animate-pulse"></span>
+                          <span className="inline-block h-6 w-24 bg-white/30 rounded animate-pulse"></span>
                         )}
                       </p>
                     </div>
@@ -544,17 +526,59 @@ const SDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-8 min-w-0">
-            {/* Current Courses */}
-            <GraphWidget className="w-full" />
+            {/* Image Advertisements (Slider) */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xl font-bold text-slate-900">
+                  අනෙකුත් තොරතුරු
+                </h3>
+              </div>
+
+              <div className="relative">
+                <Swiper
+                  modules={[Autoplay, Pagination]}
+                  slidesPerView={1}
+                  loop
+                  autoplay={{ delay: 3000, disableOnInteraction: false }}
+                  pagination={{ clickable: true }}
+                  className="rounded-xl"
+                >
+                  {adverts.map((ad) => (
+                    <SwiperSlide key={ad.id}>
+                      <a
+                        href={ad.href || "#"}
+                        className="block group"
+                        target={ad.href ? "_blank" : undefined}
+                        rel={ad.href ? "noreferrer" : undefined}
+                        aria-label={ad.title}
+                      >
+                        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-slate-200">
+                          <img
+                            src={ad.src}
+                            alt={ad.title}
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                            loading="lazy"
+                          />
+                          <div className="absolute left-4 bottom-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-sm font-medium text-slate-800 shadow-sm border border-slate-200">
+                            {ad.title}
+                          </div>
+                        </div>
+                      </a>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              </div>
+            </div>
+
             {/* Warning/Notice */}
-            <div className="bg-gradient-to-br from-red-900/40 via-red-950/50 to-black/40 backdrop-blur-sm rounded-2xl p-6 border border-red-500/20">
+            <div className="bg-gradient-to-br from-rose-50 via-pink-50 to-red-50 rounded-2xl p-6 border border-rose-200">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xl font-bold text-red-300">
+                <h3 className="text-xl font-bold text-rose-700">
                   ආරක්ෂක දැන්වීම
                 </h3>
               </div>
 
-              <div className="p-4 text-red-200">
+              <div className="p-4 text-rose-800">
                 අපගේ වෙබ් අඩවිය ඔබේ IP ලිපිනය සහ අනෙකුත් තොරතුරු ස්වයංක්‍රීයව
                 සටහන් කරයි. ඔබ විසින් වීඩියෝ, ලේඛන හෝ කිසිදු අන්තර්ගතයක් නීති
                 විරෝධීව බෙදා හරින්නේ නම්, අපට ඒවා හඹාහැරී සොයා ගැනීම සහ නීතිමය
@@ -567,8 +591,8 @@ const SDashboard = () => {
           {/* Right Column */}
           <div className="space-y-8">
             {/* Profile */}
-            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
-              <h3 className="text-xl font-bold text-white mb-6">Profile</h3>
+            <div className="bg-white rounded-2xl p-6 border border-slate-200">
+              <h3 className="text-xl font-bold text-slate-900 mb-6">Profile</h3>
 
               <div className="space-y-4">
                 {[
@@ -602,18 +626,18 @@ const SDashboard = () => {
                     description: userData?.address || "Not Provided",
                     icon: "🏠",
                   },
-                ].map((achievement) => (
+                ].map((item) => (
                   <div
-                    key={achievement.id}
-                    className="flex items-center space-x-4 p-3 bg-white/5 rounded-xl border border-white/10"
+                    key={item.id}
+                    className="flex items-center space-x-4 p-3 bg-slate-50 rounded-xl border border-slate-200"
                   >
-                    <div className="text-2xl">{achievement.icon}</div>
+                    <div className="text-2xl">{item.icon}</div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-white">
-                        {achievement.title}
+                      <h4 className="font-medium text-slate-900">
+                        {item.title}
                       </h4>
-                      <p className="text-sm text-zinc-300">
-                        {achievement.description}
+                      <p className="text-sm text-slate-600">
+                        {item.description}
                       </p>
                     </div>
                   </div>
@@ -622,36 +646,36 @@ const SDashboard = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
-              <h3 className="text-xl font-bold text-white mb-6">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200">
+              <h3 className="text-xl font-bold text-slate-900 mb-6">
                 Quick Actions
               </h3>
 
               <div className="grid grid-cols-2 gap-3">
-                <button className="flex flex-col items-center p-4 bg-white/5 rounded-xl border border-white/10 hover:border-red-400/50 hover:shadow-lg hover:shadow-red-900/20 transition-all duration-300">
-                  <Download className="w-6 h-6 text-red-400 mb-2" />
-                  <span className="text-sm font-medium text-white">
+                <button className="flex flex-col items-center p-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all duration-300">
+                  <Download className="w-6 h-6 text-indigo-600 mb-2" />
+                  <span className="text-sm font-medium text-slate-900">
                     Download APK
                   </span>
                 </button>
 
-                <button className="flex flex-col items-center p-4 bg-white/5 rounded-xl border border-white/10 hover:border-red-400/50 hover:shadow-lg hover:shadow-red-900/20 transition-all duration-300">
-                  <MessageCircle className="w-6 h-6 text-red-400 mb-2" />
-                  <span className="text-sm font-medium text-white">
+                <button className="flex flex-col items-center p-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all duration-300">
+                  <MessageCircle className="w-6 h-6 text-indigo-600 mb-2" />
+                  <span className="text-sm font-medium text-slate-900">
                     Messages
                   </span>
                 </button>
 
-                <button className="flex flex-col items-center p-4 bg-white/5 rounded-xl border border-white/10 hover:border-red-400/50 hover:shadow-lg hover:shadow-red-900/20 transition-all duration-300">
-                  <Calendar className="w-6 h-6 text-red-400 mb-2" />
-                  <span className="text-sm font-medium text-white">
+                <button className="flex flex-col items-center p-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all duration-300">
+                  <Calendar className="w-6 h-6 text-indigo-600 mb-2" />
+                  <span className="text-sm font-medium text-slate-900">
                     Calendar
                   </span>
                 </button>
 
-                <button className="flex flex-col items-center p-4 bg-white/5 rounded-xl border border-white/10 hover:border-red-400/50 hover:shadow-lg hover:shadow-red-900/20 transition-all duration-300">
-                  <Settings className="w-6 h-6 text-red-400 mb-2" />
-                  <span className="text-sm font-medium text-white">
+                <button className="flex flex-col items-center p-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all duration-300">
+                  <Settings className="w-6 h-6 text-indigo-600 mb-2" />
+                  <span className="text-sm font-medium text-slate-900">
                     Settings
                   </span>
                 </button>
