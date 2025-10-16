@@ -1,0 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
+@import "tailwindcss";
+
+* {
+  font-family: "Outfit", sans-serif;
+}
+@font-face {
+  font-family: "Gurulugomi";
+  src: url("/fonts/Gurulugomi.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: "4u-Indumathi";
+  src: url("/fonts/4u-Indumathi.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Style for Sinhala text */
+.sinhala-text {
+  font-family: "4u-Indumathi";
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for Firefox */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.line {
+  transform: translateY(100%);
+  will-change: transform;
+}

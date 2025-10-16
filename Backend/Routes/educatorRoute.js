@@ -2,6 +2,7 @@ import express from "express";
 import upload from "../config/multer.js";
 import {
   addCourse,
+  bulkunenrollfromcourse,
   createMainCategory,
   createSubCategory,
   deleteCourse,
@@ -117,6 +118,11 @@ educatorRouter.post(
   enrollstudentManually
 );
 
+educatorRouter.post(
+  "/unenroll/bulk",
+  userAuth(["admin"]),
+  bulkunenrollfromcourse
+);
 educatorRouter.post(
   "/enroll/bulk",
   upload.single("file"),
