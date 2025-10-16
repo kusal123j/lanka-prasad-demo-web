@@ -1,12 +1,56 @@
 // src/components/Store.jsx
-import React, { useContext, useMemo, useState, useEffect } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useContext,
+} from "react";
 import { useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import axios from "axios";
 import { AppContext } from "../../Context/AppContext";
-import NICVerificationCard from "../../Components/Student/NICVerificationCard";
 
-// Full month names to match course.month values
-const MONTHS = [
+const MAIN_CATEGORIES = [
+  {
+    name: "Grade 6",
+    image:
+      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1400&auto=format&fit=crop",
+    gradient: "from-sky-100 to-blue-50",
+  },
+  {
+    name: "Grade 7",
+    image:
+      "https://images.unsplash.com/photo-1588072432836-e10032774350?q=80&w=1400&auto=format&fit=crop",
+    gradient: "from-emerald-100 to-teal-50",
+  },
+  {
+    name: "Grade 8",
+    image:
+      "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?q=80&w=1400&auto=format&fit=crop",
+    gradient: "from-fuchsia-100 to-pink-50",
+  },
+  {
+    name: "Grade 9",
+    image:
+      "https://images.unsplash.com/photo-1517976487492-576ea6b2936d?q=80&w=1400&auto=format&fit=crop",
+    gradient: "from-orange-100 to-rose-50",
+  },
+  {
+    name: "Grade 10",
+    image:
+      "https://images.unsplash.com/photo-1596495578065-8ac4705eeea6?q=80&w=1400&auto=format&fit=crop",
+    gradient: "from-violet-100 to-indigo-50",
+  },
+  {
+    name: "Grade 11",
+    image:
+      "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=1400&auto=format&fit=crop",
+    gradient: "from-amber-100 to-yellow-50",
+  },
+];
+
+// Full month names (UI order)
+const UI_MONTHS = [
   "January",
   "February",
   "March",
@@ -21,378 +65,374 @@ const MONTHS = [
   "December",
 ];
 
+// Normalize possible month formats from backend ("jan", "JAN", "Sept", etc.)
+const normalizeMonth = (m) => {
+  if (!m || typeof m !== "string") return "";
+  const s = m.trim().toLowerCase();
+  const map = {
+    jan: "january",
+    january: "january",
+    feb: "february",
+    february: "february",
+    mar: "march",
+    march: "march",
+    apr: "april",
+    april: "april",
+    may: "may",
+    jun: "june",
+    june: "june",
+    jul: "july",
+    july: "july",
+    aug: "august",
+    august: "august",
+    sep: "september",
+    sept: "september",
+    september: "september",
+    oct: "october",
+    october: "october",
+    nov: "november",
+    november: "november",
+    dec: "december",
+    december: "december",
+  };
+  return map[s] || s;
+};
+
+// Try to get a human label for a sub-category from a course
+const inferSubLabel = (course) => {
+  const name =
+    course?.subCategory?.name ||
+    course?.subCategoryName ||
+    (course?.title ? course.title.split(/[-•|–—>/]/)[0]?.trim() : "");
+
+  if (name && name.length) return name;
+  const id =
+    (typeof course?.subCategory === "object"
+      ? course?.subCategory?._id
+      : course?.subCategory) || "";
+  return id ? `Class ${String(id).slice(0, 4)}…` : "Class";
+};
+
 const Store = () => {
   const navigate = useNavigate();
-  const { allCourses = [], userData, categories } = useContext(AppContext);
+  const { backend_url } = useContext(AppContext);
+  // UI state
+  const [selectedMain, setSelectedMain] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState("");
+  const [search, setSearch] = useState("");
 
-  const mainCategoryName = userData?.mainCategory || "";
+  // Cache: { [mainName]: Course[] }
+  const [coursesByMain, setCoursesByMain] = useState({});
 
-  // Modal state (bug-free alternative to accordion toggles)
-  const [selectedSub, setSelectedSub] = useState(null);
-  const [query, setQuery] = useState("");
+  // Click a main category (Grade)
+  const handleSelectMain = async (mainName) => {
+    setSelectedMain(mainName);
+    setFetchError("");
+    // If cached, no fetch
+    if (coursesByMain[mainName]?.length) return;
 
-  // Find the main category object by name (e.g., "2025")
-  const mainCategory = useMemo(() => {
-    if (!categories?.length || !mainCategoryName) return null;
-    const mc = categories.find(
-      (c) =>
-        c?.type === "main" &&
-        String(c?.name).toLowerCase() === mainCategoryName.toLowerCase()
-    );
-    return mc || null;
-  }, [categories, mainCategoryName]);
+    // Load with skeleton
+    setLoading(true);
+    try {
+      const { data } = await axios.post(
+        backend_url + "/api/course/get-courses-by-maincategory",
+        {
+          mainCategory: mainName,
+        }
+      );
+      console.log(data);
 
-  const subCategories = mainCategory?.subCategories || [];
-
-  // Build a fast lookup for courses by "subCategoryId_month"
-  const courseMap = useMemo(() => {
-    const map = new Map();
-    if (!mainCategory?._id || !Array.isArray(allCourses)) return map;
-    const mainId = mainCategory._id;
-
-    for (const course of allCourses) {
-      if (!course?.isPublished) continue;
-      if (course?.mainCategory !== mainId) continue; // ensure it belongs to this main category
-      const subId = course?.subCategory;
-      const monthKey = String(course?.month || "").toLowerCase();
-      if (!subId || !monthKey) continue;
-
-      const key = `${subId}_${monthKey}`;
-      if (!map.has(key)) map.set(key, course);
+      if (data?.success) {
+        const list = Array.isArray(data?.courses) ? data.courses : [];
+        setCoursesByMain((prev) => ({ ...prev, [mainName]: list }));
+      } else {
+        setFetchError(data?.message || "Failed to fetch courses.");
+      }
+    } catch (err) {
+      setFetchError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Something went wrong loading courses."
+      );
+    } finally {
+      setLoading(false);
     }
-    return map;
-  }, [allCourses, mainCategory]);
-
-  const isMonthAvailable = (subId, month) => {
-    const key = `${subId}_${month.toLowerCase()}`;
-    return courseMap.has(key);
   };
 
-  const handleMonthClick = (subId, month) => {
-    const key = `${subId}_${month.toLowerCase()}`;
-    const course = courseMap.get(key);
-    if (course?._id) {
+  const goBackToMain = () => {
+    setSelectedMain(null);
+    setSearch("");
+    setFetchError("");
+  };
+
+  // Build sub-category groups from courses
+  const subGroups = useMemo(() => {
+    const courses = selectedMain ? coursesByMain[selectedMain] || [] : [];
+    const map = new Map(); // subId -> { id, name, monthMap: Map(lowerMonth -> course) }
+
+    for (const c of courses) {
+      const subId =
+        typeof c?.subCategory === "object"
+          ? c?.subCategory?._id
+          : c?.subCategory;
+      if (!subId) continue;
+
+      const lowerMonth = normalizeMonth(c?.month);
+      if (!lowerMonth) continue;
+
+      if (!map.has(subId)) {
+        map.set(subId, {
+          id: subId,
+          name: inferSubLabel(c),
+          monthMap: new Map(),
+        });
+      }
+      map.get(subId).monthMap.set(lowerMonth, c);
+    }
+
+    let groups = Array.from(map.values());
+    // Optional: sort by name
+    groups.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Filter by search
+    const q = search.trim().toLowerCase();
+    if (q) groups = groups.filter((g) => g.name.toLowerCase().includes(q));
+
+    return groups;
+  }, [selectedMain, coursesByMain, search]);
+
+  const openCourse = useCallback(
+    (course) => {
+      if (!course?._id) return;
       navigate(`/student/class/${course._id}`);
-    }
-  };
-
-  const filteredSubs = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return subCategories;
-    return subCategories.filter((s) =>
-      String(s?.name || "")
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [subCategories, query]);
-
-  // Modal helpers
-  const openSub = (sub) => setSelectedSub(sub);
-  const closeSub = () => setSelectedSub(null);
-
-  // Close on ESC
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") closeSub();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  // Body scroll lock when modal open
-  useEffect(() => {
-    if (selectedSub) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [selectedSub]);
-
-  // Icons
-  const CheckIcon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path
-        d="M20 6L9 17l-5-5"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-  const LockIcon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <rect x="4" y="11" width="16" height="9" rx="2" strokeWidth="2" />
-      <path d="M8 11V7a4 4 0 1 1 8 0v4" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-  const SearchIcon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path
-        d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-  const XIcon = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path d="M6 6l12 12M18 6L6 18" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    },
+    [navigate]
   );
 
-  const subCount = subCategories?.length || 0;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-neutral-900 text-white">
-      {/* Header */}
-      <div className="relative">
-        <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(70%_60%_at_50%_0%,black,transparent)]">
-          <div className="h-40 bg-gradient-to-b from-rose-600/10 via-red-500/5 to-transparent blur-2xl" />
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-rose-400 via-red-400 to-orange-300">
-                  Your Classes
-                </span>
-              </h1>
-              <p className="text-neutral-400 mt-2">
-                Explore monthly classes for{" "}
-                <span className="text-rose-400 font-medium">
-                  {mainCategoryName || "—"}
-                </span>
-              </p>
-
-              {mainCategory && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-                  {/* Keep only subcategory count. Removed any "months available" counters */}
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-neutral-300">
-                    <span className="w-2 h-2 rounded-full bg-rose-400" />
-                    {subCount} class{subCount === 1 ? "" : "es"}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Search */}
-            {mainCategory && (
-              <div className="w-full sm:w-80">
-                <label className="block">
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                      <SearchIcon className="w-4 h-4 text-neutral-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search your class..."
-                      className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2.5 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-rose-400/40 focus:border-rose-400/40 transition"
-                    />
-                  </div>
-                </label>
-              </div>
-            )}
-          </div>
+  // Skeleton card
+  const SkeletonCard = () => (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="animate-pulse space-y-3">
+        <div className="h-4 w-1/2 bg-slate-200 rounded" />
+        <div className="h-3 w-1/3 bg-slate-200 rounded" />
+        <div className="grid grid-cols-3 gap-2 mt-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-8 bg-slate-200 rounded" />
+          ))}
         </div>
       </div>
+    </div>
+  );
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        {!mainCategory && (
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6 sm:p-8">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 grid place-items-center rounded-xl bg-rose-500/10 ring-1 ring-rose-400/30 text-rose-300">
-                !
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">
-                  Main category not found
-                </h2>
-                <p className="text-neutral-400 mt-1">
-                  We couldn’t find a main category for “
-                  {mainCategoryName || "—"}”. Please check your selection or try
-                  again later.
-                </p>
-              </div>
+  // UI
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-800">
+      {/* Top header */}
+      <header className="sticky top-0 z-10 backdrop-blur-sm bg-white/75 border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {selectedMain ? (
+              <button
+                onClick={goBackToMain}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                title="Back to grades"
+              >
+                <span className="i">←</span> Back
+              </button>
+            ) : null}
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold">
+                {selectedMain ? `Browse: ${selectedMain}` : "Browse Classes"}
+              </h1>
+              <p className="text-slate-500 text-sm">
+                {selectedMain
+                  ? "Pick a subject and month to open the class."
+                  : "Start by selecting your grade."}
+              </p>
             </div>
           </div>
-        )}
 
-        {mainCategory && (
-          <>
-            {subCategories?.length ? (
-              <>
-                {/* Subcategory grid */}
-                {filteredSubs?.length ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredSubs.map((sub) => (
-                      <motion.button
-                        key={sub._id}
-                        type="button"
-                        onClick={() => openSub(sub)}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className="group relative text-left rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent backdrop-blur-sm overflow-hidden shadow-[0_0_0_1px_rgba(255,255,255,0.03)] hover:border-rose-400/40 hover:shadow-[0_0_0_1px_rgba(244,63,94,0.25),0_20px_40px_-20px_rgba(244,63,94,0.35)] transition focus:outline-none focus:ring-2 focus:ring-rose-400/40"
-                      >
-                        <div className="p-5 flex items-start gap-4">
-                          <div className="h-12 w-12 select-none grid place-items-center rounded-xl bg-rose-500/10 ring-1 ring-rose-400/30 text-rose-300 font-semibold">
-                            {String(sub?.name || "?")
-                              .slice(0, 1)
-                              .toUpperCase()}
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold tracking-wide">
-                              {sub.name}
-                            </h3>
-                            {/* Removed "1/12 months" and any "X months available" text */}
-                            <p className="mt-1 text-sm text-neutral-400">
-                              Tap to view months
-                            </p>
-                          </div>
-                          <span className="ml-auto inline-flex h-9 items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 text-xs text-neutral-300 group-hover:border-rose-400/40">
-                            View
-                          </span>
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-neutral-300">
-                    No classes match “{query}”.
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6 sm:p-8 text-neutral-300">
-                No classes found for “{mainCategoryName}”.
+          {selectedMain ? (
+            <div className="hidden sm:block">
+              <div className="text-sm text-slate-500">
+                Light theme • Colorful accents
               </div>
-            )}
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* MAIN CATEGORIES (Grades) */}
+        {!selectedMain && (
+          <>
+            <div className="mb-6">
+              <h2 className="text-lg font-medium">Choose your Grade</h2>
+              <p className="text-slate-500 text-sm">
+                These are fixed. You can change the images in the code.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-5">
+              {MAIN_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.name}
+                  onClick={() => handleSelectMain(cat.name)}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-sky-300"
+                >
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${cat.gradient}`}
+                  />
+                  <div className="absolute inset-0 bg-white/50" />
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 transition"
+                      loading="lazy"
+                    />
+                  ) : null}
+                  <div className="relative p-5">
+                    <div className="inline-flex items-center justify-center h-11 w-11 rounded-xl bg-white shadow border border-slate-200">
+                      <span className="text-lg font-bold text-slate-700">
+                        {cat.name.replace("Grade ", "")}
+                      </span>
+                    </div>
+                    <div className="mt-4">
+                      <div className="text-base font-semibold">{cat.name}</div>
+                      <div className="text-sm text-slate-600">
+                        View subjects and months
+                      </div>
+                    </div>
+                    <div className="mt-4 inline-flex items-center gap-2 text-sky-700 font-medium">
+                      Continue <span>→</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </>
         )}
-      </div>
 
-      {/* Modal: Months for selected subcategory (mobile-friendly bottom sheet) */}
-      <AnimatePresence>
-        {selectedSub && (
+        {/* SUBCATEGORIES + MONTHS */}
+        {selectedMain && (
           <>
-            {/* Backdrop */}
-            <motion.div
-              key="backdrop"
-              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeSub}
-            />
-            {/* Dialog */}
-            <motion.div
-              key="dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="sub-title"
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-            >
-              <div
-                className="w-full max-w-2xl rounded-t-2xl sm:rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900 to-black shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 grid place-items-center rounded-lg bg-rose-500/10 ring-1 ring-rose-400/30 text-rose-300 font-semibold">
-                      {String(selectedSub?.name || "?")
-                        .slice(0, 1)
-                        .toUpperCase()}
-                    </div>
-                    <div>
-                      <h2 id="sub-title" className="text-lg font-semibold">
-                        {selectedSub?.name}
-                      </h2>
-                      <p className="text-xs text-neutral-400">
-                        Choose a month to open the class
-                      </p>
-                    </div>
+            <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-[220px]">
+                <label className="block text-sm text-slate-600 mb-1">
+                  Search subjects
+                </label>
+                <div className="relative">
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Type to filter..."
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+                  />
+                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                    🔎
                   </div>
-                  <button
-                    aria-label="Close"
-                    onClick={closeSub}
-                    className="rounded-lg border border-white/10 bg-white/5 p-2 text-neutral-300 hover:border-rose-400/40 hover:text-white focus:outline-none focus:ring-2 focus:ring-rose-400/40"
-                  >
-                    <XIcon className="w-5 h-5" />
-                  </button>
                 </div>
+              </div>
 
-                <div className="px-5 py-4">
-                  {/* Legend */}
-                  <div className="mb-4 flex items-center gap-4 text-xs text-neutral-400">
-                    <div className="inline-flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-rose-400" />{" "}
-                      Available
-                    </div>
-                    <div className="inline-flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-white/20" />{" "}
-                      Locked
-                    </div>
+              <div className="text-sm text-slate-500">
+                Grade: <span className="font-medium">{selectedMain}</span>
+              </div>
+            </div>
+
+            {/* Error */}
+            {fetchError ? (
+              <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700">
+                {fetchError}
+              </div>
+            ) : null}
+
+            {/* Skeleton while loading */}
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* No data */}
+                {!subGroups.length ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
+                    {search
+                      ? `No subjects match “${search}”.`
+                      : "No classes found for this grade."}
                   </div>
-
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                    {MONTHS.map((month) => {
-                      const available = isMonthAvailable(
-                        selectedSub._id,
-                        month
-                      );
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {subGroups.map((sub) => {
+                      // month -> course map
+                      const monthMap = sub.monthMap;
                       return (
-                        <button
-                          key={month}
-                          disabled={!available}
-                          onClick={() =>
-                            available &&
-                            handleMonthClick(selectedSub._id, month)
-                          }
-                          title={
-                            available
-                              ? `Open ${selectedSub.name} • ${month}`
-                              : `${month} is locked`
-                          }
-                          className={[
-                            "inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium border transition-all",
-                            "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-0",
-                            available
-                              ? "bg-gradient-to-r from-rose-600 to-red-500 text-white border-rose-400/30 hover:from-rose-500 hover:to-red-400 shadow-md shadow-rose-900/20"
-                              : "bg-white/[0.03] border-white/10 text-neutral-500 cursor-not-allowed",
-                          ].join(" ")}
-                          aria-label={`${month} ${
-                            available ? "available" : "locked"
-                          }`}
+                        <div
+                          key={sub.id}
+                          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                         >
-                          {available ? (
-                            <CheckIcon className="w-4 h-4" />
-                          ) : (
-                            <LockIcon className="w-4 h-4" />
-                          )}
-                          {month.slice(0, 3)}
-                        </button>
+                          <div className="flex items-start gap-3">
+                            <div className="h-11 w-11 grid place-items-center rounded-xl bg-sky-100 text-sky-700 font-semibold border border-sky-200">
+                              {String(sub.name).slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-base font-semibold">
+                                {sub.name}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                Tap a month to open class
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <div className="mb-2 text-xs text-slate-500">
+                              Months
+                            </div>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                              {UI_MONTHS.map((m) => {
+                                const key = normalizeMonth(m);
+                                const course = monthMap.get(key);
+                                const available = !!course;
+
+                                return (
+                                  <button
+                                    key={m}
+                                    disabled={!available}
+                                    onClick={() =>
+                                      available && openCourse(course)
+                                    }
+                                    className={[
+                                      "inline-flex items-center justify-center rounded-lg px-2.5 py-2 text-sm border transition",
+                                      available
+                                        ? "bg-gradient-to-r from-sky-400 to-indigo-400 text-white border-sky-300 hover:from-sky-500 hover:to-indigo-500 shadow-sm"
+                                        : "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed",
+                                    ].join(" ")}
+                                    title={
+                                      available
+                                        ? `Open ${sub.name} • ${m}`
+                                        : `${m} not available`
+                                    }
+                                  >
+                                    {available ? "✓" : "•"} {m.slice(0, 3)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
-                </div>
-
-                {/* Mobile handle */}
-                <div className="sm:hidden h-3 w-16 mx-auto mb-3 rounded-full bg-white/10" />
-              </div>
-            </motion.div>
+                )}
+              </>
+            )}
           </>
         )}
-      </AnimatePresence>
+      </main>
     </div>
   );
 };

@@ -123,8 +123,24 @@ export const getCoursesByMainCategory = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
 
-    // 2️⃣ Create cache key
-    const cacheKey = `courses_maincategory_${mainCategory}`;
+    // 2️⃣ Normalize the main category (can be name or ObjectId)
+    let mainCategoryId = mainCategory;
+    let cacheKey = `courses_maincategory_${mainCategory}`;
+
+    // Check if it's NOT a valid ObjectId (meaning it's likely a name)
+    if (!/^[0-9a-fA-F]{24}$/.test(mainCategory)) {
+      const mainCatDoc = await Category.findOne({
+        name: mainCategory,
+        type: "main",
+      });
+      if (!mainCatDoc) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Main category not found" });
+      }
+      mainCategoryId = mainCatDoc._id;
+      cacheKey = `courses_maincategory_${mainCatDoc._id}`;
+    }
 
     // 3️⃣ Check Redis cache first
     const cachedCourses = await redis.get(cacheKey);
@@ -136,36 +152,26 @@ export const getCoursesByMainCategory = async (req, res) => {
       });
     }
 
-    // 4️⃣ Find the main category in DB
-    const mainCatDoc = await Category.findOne({
-      name: mainCategory,
-      type: "main",
-    });
-
-    if (!mainCatDoc) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Main category not found" });
-    }
-
-    // 5️⃣ Get all published courses under this main category
+    // 4️⃣ Find all published courses for this main category
     const courses = await Course.find({
       isPublished: true,
-      mainCategory: mainCatDoc._id,
-    }).select([
-      "-enrolledStudents",
-      "-courseContent",
-      "-courseResources",
-      "-zoomLink",
-      "-youtubeLive",
-      "-attendance",
-    ]);
+      mainCategory: mainCategoryId,
+    })
+      .populate("subCategory", "name")
+      .select([
+        "-enrolledStudents",
+        "-courseContent",
+        "-courseResources",
+        "-zoomLink",
+        "-youtubeLive",
+        "-attendance",
+      ]);
 
-    // 6️⃣ Cache the data for 1 hour
+    // 5️⃣ Cache for 1 hour (3600 seconds)
     await redis.set(cacheKey, JSON.stringify(courses), { EX: 3600 });
 
-    // 7️⃣ Send response
-    res.status(200).json({ success: true, fromCache: false, courses });
+    // 6️⃣ Return response
+    return res.status(200).json({ success: true, fromCache: false, courses });
   } catch (error) {
     console.error("Error fetching courses by main category:", error);
     res.status(500).json({ success: false, message: error.message });
