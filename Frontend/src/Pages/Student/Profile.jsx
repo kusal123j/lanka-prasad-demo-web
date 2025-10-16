@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-// Light-theme reusable input/select
+// Light-theme reusable input/select with error display
 const InputField = memo(function InputField({
   icon: Icon,
   id,
@@ -26,7 +26,8 @@ const InputField = memo(function InputField({
   placeholder,
   value,
   onChange,
-  required = true,
+  onBlur,
+  required = false,
   disabled = false,
   options = null,
   autoComplete,
@@ -34,12 +35,21 @@ const InputField = memo(function InputField({
   maxLength,
   pattern,
   title,
+  error,
+  helperText,
 }) {
+  const inputId = id || name;
+  const describedBy = error
+    ? `${inputId}-error`
+    : helperText
+    ? `${inputId}-help`
+    : undefined;
+
   return (
     <div className="group">
       {label && (
         <label
-          htmlFor={id || name}
+          htmlFor={inputId}
           className="block mb-1 text-sm font-medium text-gray-700"
         >
           {label} {required && <span className="text-rose-500">*</span>}
@@ -51,6 +61,8 @@ const InputField = memo(function InputField({
           ${
             disabled
               ? "bg-gray-50 border-gray-200"
+              : error
+              ? "border-rose-400 hover:border-rose-400 focus-within:border-rose-500"
               : "border-gray-200 hover:border-blue-300 focus-within:border-blue-400"
           }
         `}
@@ -60,6 +72,8 @@ const InputField = memo(function InputField({
             className={`w-5 h-5 mr-3 ${
               disabled
                 ? "text-gray-400"
+                : error
+                ? "text-rose-500"
                 : "text-gray-500 group-focus-within:text-blue-500"
             }`}
           />
@@ -67,12 +81,15 @@ const InputField = memo(function InputField({
 
         {options ? (
           <select
-            id={id || name}
+            id={inputId}
             name={name}
             value={value || ""}
             onChange={onChange}
+            onBlur={onBlur}
             required={required}
             disabled={disabled}
+            aria-invalid={!!error}
+            aria-describedby={describedBy}
             className={`w-full outline-none bg-transparent text-gray-900 font-medium appearance-none ${
               disabled ? "cursor-not-allowed opacity-70" : ""
             }`}
@@ -88,12 +105,13 @@ const InputField = memo(function InputField({
           </select>
         ) : (
           <input
-            id={id || name}
+            id={inputId}
             type={type}
             name={name}
             placeholder={placeholder}
             value={value || ""}
             onChange={onChange}
+            onBlur={onBlur}
             required={required}
             disabled={disabled}
             autoComplete={autoComplete}
@@ -101,12 +119,24 @@ const InputField = memo(function InputField({
             maxLength={maxLength}
             pattern={pattern}
             title={title}
+            aria-invalid={!!error}
+            aria-describedby={describedBy}
             className={`w-full outline-none bg-transparent text-gray-900 font-medium placeholder:text-gray-400 ${
               disabled ? "cursor-not-allowed opacity-70" : ""
             }`}
           />
         )}
       </div>
+
+      {error ? (
+        <p id={`${inputId}-error`} className="mt-1 text-sm text-rose-600">
+          {error}
+        </p>
+      ) : helperText ? (
+        <p id={`${inputId}-help`} className="mt-1 text-xs text-gray-500">
+          {helperText}
+        </p>
+      ) : null}
     </div>
   );
 });
@@ -157,11 +187,16 @@ const ProfilePage = () => {
     Address: "",
     tuteDliveryPhoennumebr1: "",
     tuteDliveryPhoennumebr2: "",
+    // Optional (add only if your backend supports it)
   });
 
   const [initialProfile, setInitialProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  // form meta state
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   const districts = [
     "Colombo",
@@ -197,16 +232,19 @@ const ProfilePage = () => {
     "Grade 9",
     "Grade 10",
     "Grade 11",
-    "Grade 12",
   ];
   const genders = ["Male", "Female", "Other"];
 
-  // Normalize date from server to yyyy-MM-dd
+  // Helpers
   const toDateInput = (val) => {
     if (!val) return "";
+    if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
     const d = new Date(val);
     if (Number.isNaN(d.getTime())) return "";
-    return d.toISOString().slice(0, 10);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   };
   const normalizeFromServer = (data = {}) => ({
     ...data,
@@ -223,18 +261,47 @@ const ProfilePage = () => {
     tuteDliveryPhoennumebr2: (v) => onlyDigits(v, 10),
     name: (v) => onlyLetters(v, 50),
     lastname: (v) => onlyLetters(v, 50),
-    ExamYear: (v) => onlyDigits(v, 4),
+    ExamYear: (v) => v, // select value like "Grade 6"
     Address: (v) => v.slice(0, 140),
     School: (v) => v.slice(0, 80),
+  };
+
+  // Validation utils
+  const isTenDigits = (v) => /^\d{10}$/.test(v);
+  const isMainPhoneValidWhenChanged = (v) => /^07\d{8}$/.test(v);
+  const notFutureDate = (v) => {
+    if (!v) return true;
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d <= today && d.getFullYear() >= 1900;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     const clean = sanitize[name] ? sanitize[name](value) : value;
-    setProfile((prev) => ({ ...prev, [name]: clean }));
+    setProfile((prev) => {
+      const next = { ...prev, [name]: clean };
+      return next;
+    });
+    setTouched((t) => ({ ...t, [name]: true }));
+    setErrors((prev) => {
+      const msg = validateField(name, clean);
+      return { ...prev, [name]: msg };
+    });
   };
 
-  const EDITABLE_FIELDS = [
+  const handleBlur = (e) => {
+    const { name } = e.target;
+    setTouched((t) => ({ ...t, [name]: true }));
+    setErrors((prev) => {
+      const msg = validateField(name, profile[name]);
+      return { ...prev, [name]: msg };
+    });
+  };
+
+  const EDITABLE_FIELDS_BASE = [
     "name",
     "lastname",
     "Gender",
@@ -247,6 +314,12 @@ const ProfilePage = () => {
     "School",
     "District",
   ];
+
+  const EDITABLE_FIELDS = useMemo(() => {
+    const fields = [...EDITABLE_FIELDS_BASE];
+    if ("NIC" in profile) fields.push("NIC");
+    return fields;
+  }, [profile]);
 
   const buildUpdatePayload = () => {
     const payload = {};
@@ -265,6 +338,8 @@ const ProfilePage = () => {
         const normalized = normalizeFromServer(res.data.userData || {});
         setProfile((prev) => ({ ...prev, ...normalized }));
         setInitialProfile(normalized);
+        setErrors({});
+        setTouched({});
         getUserData?.();
       } else {
         toast.error(res.data?.message || "Failed to load profile.");
@@ -287,10 +362,103 @@ const ProfilePage = () => {
     return EDITABLE_FIELDS.some(
       (k) => (profile[k] || "") !== (initialProfile[k] || "")
     );
-  }, [profile, initialProfile]);
+  }, [profile, initialProfile, EDITABLE_FIELDS]);
+
+  // Field-level validation
+  const validateField = (name, value) => {
+    switch (name) {
+      case "name":
+        if (!value) return "First name is required.";
+        if (value.length < 2)
+          return "First name must be at least 2 characters.";
+        return "";
+      case "lastname":
+        if (!value) return "Last name is required.";
+        if (value.length < 2) return "Last name must be at least 2 characters.";
+        return "";
+      case "Gender":
+        if (!value) return "Please select your gender.";
+        if (!["Male", "Female", "Other"].includes(value))
+          return "Invalid gender selection.";
+        return "";
+      case "BirthDay":
+        if (!value) return "";
+        if (!notFutureDate(value)) return "Please enter a valid past date.";
+        return "";
+      case "phonenumber": {
+        if (!value) return "Phone number is required.";
+        if (!isTenDigits(value)) return "Enter a 10-digit phone number.";
+        const changed =
+          initialProfile && value !== (initialProfile.phonenumber || "");
+        if (changed && !isMainPhoneValidWhenChanged(value))
+          return "If you update your number, it must start with 07 (e.g., 07XXXXXXXX).";
+        return "";
+      }
+      case "tuteDliveryPhoennumebr1":
+      case "tuteDliveryPhoennumebr2":
+        if (!value) return "";
+        if (!isTenDigits(value)) return "Enter a 10-digit phone number.";
+        return "";
+      case "Address":
+        if (!value) return "";
+        if (value.length < 5) return "Address should be at least 5 characters.";
+        return "";
+      case "School":
+        return ""; // optional
+      case "ExamYear":
+        if (!value) return "Please select your class.";
+        if (!ExamYears.includes(value)) return "Invalid class selection.";
+        return "";
+      case "District":
+        if (!value) return "Please select your district.";
+        if (!districts.includes(value)) return "Invalid district selection.";
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  const validateAll = () => {
+    const nextErrors = {};
+    const fields = [
+      "name",
+      "lastname",
+      "Gender",
+      "BirthDay",
+      "phonenumber",
+      "Address",
+      "tuteDliveryPhoennumebr1",
+      "tuteDliveryPhoennumebr2",
+      "School",
+      "ExamYear",
+      "District",
+    ];
+    fields.forEach((f) => {
+      if (f in profile) {
+        const msg = validateField(f, profile[f]);
+        if (msg) nextErrors[f] = msg;
+      }
+    });
+    setErrors(nextErrors);
+    return {
+      valid: Object.values(nextErrors).every((m) => !m),
+      firstKey: Object.keys(nextErrors).find((k) => nextErrors[k]),
+    };
+  };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
+    const { valid, firstKey } = validateAll();
+    if (!valid) {
+      // Focus the first invalid field
+      if (firstKey) {
+        const el = document.getElementById(firstKey);
+        el?.focus?.();
+      }
+      toast.error("Please fix the highlighted errors.");
+      return;
+    }
+
     setUpdating(true);
     try {
       const payload = buildUpdatePayload();
@@ -303,6 +471,8 @@ const ProfilePage = () => {
         const normalized = normalizeFromServer(res.data.user || {});
         setProfile((p) => ({ ...p, ...normalized }));
         setInitialProfile(normalized);
+        setErrors({});
+        setTouched({});
         toast.success("Profile updated successfully!");
       } else {
         toast.error(res.data?.message || "Failed to update profile");
@@ -316,7 +486,11 @@ const ProfilePage = () => {
   };
 
   const resetChanges = () => {
-    if (initialProfile) setProfile(initialProfile);
+    if (initialProfile) {
+      setProfile((prev) => ({ ...prev, ...initialProfile }));
+      setErrors({});
+      setTouched({});
+    }
   };
 
   if (loading) {
@@ -324,7 +498,6 @@ const ProfilePage = () => {
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-sky-50 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-3">
           <Loader className="w-8 h-8 animate-spin text-blue-500" />
-          <p className="text-gray-600 font-medium">Loading your profile...</p>
         </div>
       </div>
     );
@@ -346,7 +519,7 @@ const ProfilePage = () => {
           </p>
         </div>
 
-        <form onSubmit={handleUpdate} className="space-y-8">
+        <form onSubmit={handleUpdate} className="space-y-8" noValidate>
           {/* Personal Information */}
           <SectionCard
             title="Personal Information"
@@ -369,7 +542,10 @@ const ProfilePage = () => {
                 placeholder="Enter first name"
                 value={profile.name}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 autoComplete="given-name"
+                required
+                error={touched.name ? errors.name : ""}
               />
               <InputField
                 icon={User}
@@ -378,7 +554,10 @@ const ProfilePage = () => {
                 placeholder="Enter last name"
                 value={profile.lastname}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 autoComplete="family-name"
+                required
+                error={touched.lastname ? errors.lastname : ""}
               />
               <InputField
                 icon={Phone}
@@ -388,19 +567,27 @@ const ProfilePage = () => {
                 placeholder="07XXXXXXXX"
                 value={profile.phonenumber}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 inputMode="numeric"
                 autoComplete="tel"
                 maxLength={10}
                 pattern="^\d{10}$"
                 title="Enter a 10-digit phone number"
+                required
+                error={touched.phonenumber ? errors.phonenumber : ""}
+                helperText="If you update this number, it must start with 07."
               />
+
               <InputField
                 name="Gender"
                 label="Gender"
                 value={profile.Gender}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 options={genders}
                 placeholder="Select gender"
+                required
+                error={touched.Gender ? errors.Gender : ""}
               />
               <InputField
                 icon={Calendar}
@@ -409,6 +596,8 @@ const ProfilePage = () => {
                 label="Birth Day"
                 value={profile.BirthDay || ""}
                 onChange={handleChange}
+                onBlur={handleBlur}
+                error={touched.BirthDay ? errors.BirthDay : ""}
               />
             </div>
           </SectionCard>
@@ -428,8 +617,10 @@ const ProfilePage = () => {
                 placeholder="House No, Street, City"
                 value={profile.Address}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 autoComplete="street-address"
                 maxLength={140}
+                error={touched.Address ? errors.Address : ""}
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <InputField
@@ -440,23 +631,35 @@ const ProfilePage = () => {
                   placeholder="07XXXXXXXX"
                   value={profile.tuteDliveryPhoennumebr1}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   inputMode="numeric"
                   maxLength={10}
                   pattern="^\d{10}$"
                   title="Enter a 10-digit phone number"
+                  error={
+                    touched.tuteDliveryPhoennumebr1
+                      ? errors.tuteDliveryPhoennumebr1
+                      : ""
+                  }
                 />
                 <InputField
                   icon={Phone}
                   name="tuteDliveryPhoennumebr2"
                   type="tel"
-                  label="Tute Delivery Phone Number 2 "
+                  label="Tute Delivery Phone Number 2"
                   placeholder="07XXXXXXXX"
                   value={profile.tuteDliveryPhoennumebr2}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   inputMode="numeric"
                   maxLength={10}
                   pattern="^\d{10}$"
                   title="Enter a 10-digit phone number"
+                  error={
+                    touched.tuteDliveryPhoennumebr2
+                      ? errors.tuteDliveryPhoennumebr2
+                      : ""
+                  }
                 />
               </div>
             </div>
@@ -476,8 +679,10 @@ const ProfilePage = () => {
                 placeholder="Your school name"
                 value={profile.School}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 autoComplete="organization"
                 maxLength={80}
+                error={touched.School ? errors.School : ""}
               />
               <InputField
                 icon={MapPin}
@@ -486,7 +691,10 @@ const ProfilePage = () => {
                 placeholder="Select class"
                 value={profile.ExamYear}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 options={ExamYears}
+                required
+                error={touched.ExamYear ? errors.ExamYear : ""}
               />
               <InputField
                 icon={MapPin}
@@ -495,7 +703,10 @@ const ProfilePage = () => {
                 placeholder="Select district"
                 value={profile.District}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 options={districts}
+                required
+                error={touched.District ? errors.District : ""}
               />
             </div>
           </SectionCard>
@@ -542,8 +753,8 @@ const ProfilePage = () => {
         </form>
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          Student ID is read-only. All other fields above match your backend and
-          can be edited.
+          Student ID is read-only. Your main phone must be 10 digits. When you
+          update it, it must start with 07.
         </div>
       </div>
     </div>

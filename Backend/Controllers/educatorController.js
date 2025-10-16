@@ -1264,6 +1264,67 @@ export const deleteUser = async (req, res) => {
   }
 };
 
+// Bulk unenroll students from a course
+export const bulkunenrollfromcourse = async (req, res) => {
+  try {
+    // Accept both body.courseId and body.courseID
+    const courseId = req.body?.courseId || req.body?.courseID;
+    if (!courseId) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "courseId is required in request body" });
+    }
+    if (!mongoose.isValidObjectId(courseId)) {
+      return res.status(400).json({ ok: false, message: "Invalid courseId" });
+    }
+
+    // Ensure course exists
+    const course = await Course.findById(courseId)
+      .select("_id courseTitle")
+      .lean();
+    if (!course) {
+      return res.status(404).json({ ok: false, message: "Course not found" });
+    }
+
+    // Find all enrollments first so we can return which users were affected
+    const enrollments = await Enrollment.find({ course: courseId })
+      .select("user")
+      .lean();
+
+    if (enrollments.length === 0) {
+      return res.status(200).json({
+        ok: true,
+        message: "No students are currently enrolled in this course",
+        courseId: course._id,
+        courseTitle: course.courseTitle,
+        unenrolledCount: 0,
+        users: [],
+      });
+    }
+
+    const affectedUserIds = enrollments.map((e) => e.user);
+
+    // Delete all enrollments for this course
+    const { deletedCount } = await Enrollment.deleteMany({ course: courseId });
+
+    return res.status(200).json({
+      ok: true,
+      message: "All enrolled students have been unenrolled from the course",
+      courseId: course._id,
+      courseTitle: course.courseTitle,
+      unenrolledCount: deletedCount || 0,
+      users: affectedUserIds, // remove if you don't want to expose IDs
+    });
+  } catch (err) {
+    console.error("bulk-unenroll error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to bulk unenroll students",
+      error: err.message,
+    });
+  }
+};
+
 export const updateNICVerifyStatus = async (req, res) => {
   const { status, userID } = req.body;
 

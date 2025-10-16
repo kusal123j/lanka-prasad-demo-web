@@ -1,9 +1,5 @@
 import mongoose, { Types } from "mongoose";
 
-const attendanceSchema = new mongoose.Schema({
-  student: { type: Types.ObjectId, ref: "user", required: true },
-  date: { type: Date, default: Date.now },
-});
 const LectureSchema = new mongoose.Schema({
   lectureId: { type: String, required: true },
   lectureTitle: { type: String, required: true },
@@ -60,7 +56,6 @@ const CourseSchema = new mongoose.Schema(
     courseResources: [ResourceSchema],
     zoomLink: { type: String },
     youtubeLive: { type: String },
-    attendance: [attendanceSchema],
   },
   { timestamps: true, minimize: false }
 );

@@ -614,14 +614,9 @@ const SDashboard = () => {
                     description: userData?.mainCategory,
                     icon: "📅",
                   },
+
                   {
                     id: 4,
-                    title: "NIC",
-                    description: userData?.NIC,
-                    icon: "🪪",
-                  },
-                  {
-                    id: 5,
                     title: "Address",
                     description: userData?.address || "Not Provided",
                     icon: "🏠",
