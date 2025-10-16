@@ -22,7 +22,7 @@ const app = express();
 
 // CORS setup
 const allowedOrigins = [
-  "https://mylms-frontend.vercel.app",
+  "https://lanka-prasad-demo-web-froontend.vercel.app",
   "https://mylms-software-web.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",
