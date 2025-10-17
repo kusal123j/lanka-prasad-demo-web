@@ -987,6 +987,16 @@ export const enrollStudentsBulk = async (req, res) => {
           expiresAt: new Date(Date.now() + 63 * 24 * 60 * 60 * 1000),
         });
 
+        await paymentModel.create({
+          user: user._id,
+          course: course._id,
+          amount: course.coursePrice,
+          address: user.Address,
+          phonenumber1: user.tuteDliveryPhoennumebr1,
+          phonenumber2: user.tuteDliveryPhoennumebr2,
+          paymentStatus: "completed",
+        });
+
         successCount++;
       } catch (err) {
         console.error(`Error enrolling ${phonenumber}:`, err.message);

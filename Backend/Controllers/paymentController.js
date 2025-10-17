@@ -299,9 +299,11 @@ export const getPaymentsByDatePDF = async (req, res) => {
         paymentStatus: "completed",
         createdAt: { $gte: start, $lte: end },
       })
-      .select("address phonenumber1 phonenumber2 deliveryBy")
-      .populate("user", "name studentId ExamYear")
-      .populate("course", "courseTitle");
+      .populate(
+        "user",
+        "name lastname Address tuteDliveryPhoennumebr1 tuteDliveryPhoennumebr2"
+      )
+      .populate("course", "courseTitle month");
 
     // ---- fonts (Sinhala) ----
     const fontDir = path.join(__dirname, "../Fonts");
@@ -373,49 +375,37 @@ export const getPaymentsByDatePDF = async (req, res) => {
       // No ellipsis; wrap as needed (Sinhala-friendly fonts)
       const fields = [
         {
-          text: `Class: ${course.courseTitle || "-"}`,
+          text: `Class: ${course.courseTitle}`,
           bold: true,
           size: headerFontSize,
           gap: lineGapHeader,
         },
         {
-          text: `Name: ${user.name || "-"}`,
+          text: `Month: ${course.month}`,
           bold: false,
           size: bodyFontSize,
           gap: lineGapBody,
         },
         {
-          text: `SID: ${user.studentId || "-"}`,
+          text: `Name: ${user.name} ${user.lastname || ""}`,
           bold: false,
           size: bodyFontSize,
           gap: lineGapBody,
         },
         {
-          text: `Address: ${p.address || "-"}`, // ✅ fixed
+          text: `Address: ${user.Address}`, // ✅ fixed
           bold: false,
           size: bodyFontSize,
           gap: lineGapBody,
         },
         {
-          text: `Phone: ${p.phonenumber1 || "-"}`, // ✅ fixed
+          text: `Phone: ${user.tuteDliveryPhoennumebr1}`, // ✅ fixed
           bold: false,
           size: bodyFontSize,
           gap: lineGapBody,
         },
         {
-          text: `S-Phone: ${p.phonenumber2 || "-"}`, // ✅ fixed
-          bold: false,
-          size: bodyFontSize,
-          gap: lineGapBody,
-        },
-        {
-          text: `Year: ${user.ExamYear || "-"}`,
-          bold: false,
-          size: bodyFontSize,
-          gap: lineGapBody,
-        },
-        {
-          text: `Delivery: ${p.deliveryBy || "-"}`, // ✅ fixed (also spelling)
+          text: `S-Phone: ${user.tuteDliveryPhoennumebr2}`, // ✅ fixed
           bold: false,
           size: bodyFontSize,
           gap: lineGapBody,

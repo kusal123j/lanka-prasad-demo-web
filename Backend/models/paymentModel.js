@@ -2,14 +2,6 @@ import mongoose, { model, Types } from "mongoose";
 
 const paymentSchema = new mongoose.Schema(
   {
-    bankSlipImage: {
-      type: String,
-    },
-    TXnumber: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     user: {
       type: Types.ObjectId,
       ref: "user",
@@ -34,11 +26,6 @@ const paymentSchema = new mongoose.Schema(
     },
     phonenumber2: {
       type: String,
-      required: true,
-    },
-    deliveryBy: {
-      type: String,
-      enum: ["slpost", "courier"],
       required: true,
     },
     paymentStatus: {

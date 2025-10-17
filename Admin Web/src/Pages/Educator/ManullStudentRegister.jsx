@@ -381,8 +381,8 @@ Please do not share these login details with others.
           Manual User Register
         </h1>
         <p className="text-gray-600">
-          Admins can register a user manually. Optionally enter NIC to auto-fill
-          Gender and Birthday. Then enroll the user into multiple courses.
+          Admins can register a user manually. Then enroll the user into
+          multiple courses.
         </p>
       </div>
 
