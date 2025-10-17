@@ -15,7 +15,9 @@ import ProfilePage from "./Pages/Student/Profile";
 import Store from "./Pages/Student/Store";
 import CheckoutPage from "./Pages/Student/CheckoutPage";
 import MakePayment from "./Components/Student/MakePayment";
-import { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
+import { useEffect } from "react";
+import { generateToken, onMessageListener } from "./notification/firbase";
 
 const App = () => {
   axios.defaults.withCredentials = true; // Ensure axios uses credentials for all requests
@@ -25,6 +27,27 @@ const App = () => {
     return <Loading />;
   }
 
+  useEffect(() => {
+    // Request notification permission and get token
+    generateToken().then((token) => {
+      if (token) console.log("FCM Token:", token);
+    });
+
+    // Listen for foreground messages
+    onMessageListener()
+      .then((payload) => {
+        const { title, body } = payload.notification || {};
+        if (title && body) {
+          // Show toast notification directly
+          toast(`${title}: ${body}`, {
+            icon: "🔔",
+            position: "top-right",
+            duration: 5000,
+          });
+        }
+      })
+      .catch((err) => console.log("Foreground listener error:", err));
+  }, []);
   return (
     <div>
       <Toaster position="top-center" reverseOrder={true} />

@@ -1,7 +1,9 @@
 import React, { useContext, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import Select, { components } from "react-select";
 import { AppContext } from "../../Context/AppContext";
 
+// ---------- Utils ----------
 const formatBytes = (bytes) => {
   if (!bytes && bytes !== 0) return "-";
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
@@ -39,32 +41,15 @@ const downloadCSV = (rows, filename = "failed-users.csv") => {
   URL.revokeObjectURL(url);
 };
 
-// Safely derive a human-friendly name from possibly an id or object
-const readName = (val) => {
-  if (!val) return undefined;
-  if (typeof val === "string") return val;
-  if (typeof val === "object")
-    return (
-      val.name || val.title || val.label || val.slug || val._id || undefined
-    );
-  return undefined;
-};
+const looksLikeObjectId = (s) =>
+  typeof s === "string" && /^[a-f\d]{24}$/i.test(s);
 
-const makeCourseLabel = (c) => {
-  const title = c.courseTitle || "Untitled";
-  const main = readName(c.mainCategory) || c.category || "-";
-  const sub = readName(c.subCategory) || "-";
-  const month = c.month || "-";
-  return `${title} : ${main} : ${sub} : ${month}`;
-};
-
+// ---------- Component ----------
 const BulkEnrollment = () => {
   const { backend_url, allCourses, categories } = useContext(AppContext);
-  console.log(allCourses);
-  console.log(categories);
+
   const [file, setFile] = useState(null);
   const [courseId, setCourseId] = useState("");
-  const [query, setQuery] = useState("");
   const [publishedOnly, setPublishedOnly] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -80,45 +65,196 @@ const BulkEnrollment = () => {
   const abortCtrlRef = useRef(null);
   const inputFileRef = useRef(null);
 
-  // Build options from allCourses
-  const courseOptions = useMemo(() => {
-    const list = Array.isArray(allCourses) ? allCourses : [];
-    const options = list.map((c) => ({
-      id: c._id,
-      label: makeCourseLabel(c),
-      course: c,
-    }));
-    return options.sort((a, b) => a.label.localeCompare(b.label));
-  }, [allCourses]);
+  // ---------- Category name resolution (ids -> human names) ----------
+  const { mainById, subById } = useMemo(() => {
+    const main = new Map();
+    const sub = new Map();
+    const list = Array.isArray(categories) ? categories : [];
 
-  const filteredOptions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let opts = courseOptions;
-    if (publishedOnly) {
-      opts = opts.filter((o) => !!o.course.isPublished);
-    }
-    if (!q) return opts;
-    return opts.filter((o) => {
-      const hay = [
-        o.label,
-        o.course.courseTitle,
-        o.course.month,
-        o.course.category,
-        readName(o.course.mainCategory),
-        readName(o.course.subCategory),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
+    list.forEach((m) => {
+      const mName = m?.name || m?.title || m?.label || m?.slug || m?._id;
+      if (m?._id) main.set(m._id, mName);
+      const subs = Array.isArray(m?.subcategories) ? m.subcategories : [];
+      subs.forEach((s) => {
+        const sName = s?.name || s?.title || s?.label || s?.slug || s?._id;
+        if (s?._id) sub.set(s._id, sName);
+      });
     });
-  }, [courseOptions, query, publishedOnly]);
+
+    return { mainById: main, subById: sub };
+  }, [categories]);
+
+  const readName = (val) => {
+    if (!val) return undefined;
+    if (typeof val === "string") {
+      const mapped = mainById.get(val) || subById.get(val);
+      if (mapped) return mapped;
+      // Avoid showing raw Mongo IDs as labels; show nothing if it's an ID
+      return looksLikeObjectId(val) ? undefined : val;
+    }
+    if (typeof val === "object") {
+      return (
+        val.name ||
+        val.title ||
+        val.label ||
+        val.slug ||
+        mainById.get(val._id) ||
+        subById.get(val._id) ||
+        (looksLikeObjectId(val._id) ? undefined : val._id) ||
+        undefined
+      );
+    }
+    return undefined;
+  };
+
+  const makeCourseLabel = (c) => {
+    const title = c.courseTitle || "Untitled";
+    const main = readName(c.mainCategory) || c.category || "-";
+    const sub = readName(c.subCategory) || "-";
+    const month = c.month || "-";
+    return `${title} • ${main} • ${sub} • ${month}`;
+  };
+
+  // ---------- Build options for react-select ----------
+  const flatCourseOptions = useMemo(() => {
+    const list = Array.isArray(allCourses) ? allCourses : [];
+    return list.map((c) => {
+      const title = c.courseTitle || "Untitled";
+      const main = readName(c.mainCategory) || c.category || "-";
+      const sub = readName(c.subCategory) || "-";
+      const month = c.month || "-";
+      return {
+        value: c._id,
+        label: `${title} • ${main} • ${sub} • ${month}`,
+        meta: {
+          course: c,
+          title,
+          main,
+          sub,
+          month,
+          published: !!c.isPublished,
+          price: c.coursePrice,
+        },
+      };
+    });
+  }, [allCourses, mainById, subById]); // readName depends on maps
+
+  const filteredFlatOptions = useMemo(() => {
+    return publishedOnly
+      ? flatCourseOptions.filter((o) => o.meta.published)
+      : flatCourseOptions;
+  }, [flatCourseOptions, publishedOnly]);
+
+  const groupedOptions = useMemo(() => {
+    const groups = new Map();
+    filteredFlatOptions.forEach((opt) => {
+      const groupLabel = opt.meta.main || "Other";
+      if (!groups.has(groupLabel)) groups.set(groupLabel, []);
+      groups.get(groupLabel).push(opt);
+    });
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([label, options]) => ({
+        label,
+        options: options.sort((a, b) => a.label.localeCompare(b.label)),
+      }));
+  }, [filteredFlatOptions]);
 
   const selectedCourse = useMemo(() => {
     if (!courseId) return null;
     return allCourses?.find((c) => c._id === courseId) || null;
   }, [allCourses, courseId]);
 
+  const selectedOption = useMemo(
+    () => flatCourseOptions.find((o) => o.value === courseId) || null,
+    [flatCourseOptions, courseId]
+  );
+
+  // ---------- react-select styling and filtering ----------
+  const selectStyles = {
+    control: (base, state) => ({
+      ...base,
+      borderRadius: 12,
+      minHeight: 46,
+      borderColor: state.isFocused ? "#60a5fa" : "#e5e7eb",
+      boxShadow: "none",
+      ":hover": { borderColor: "#93c5fd" },
+      fontSize: 14,
+    }),
+    menu: (base) => ({ ...base, zIndex: 40, borderRadius: 12 }),
+    groupHeading: (base) => ({
+      ...base,
+      fontSize: 12,
+      color: "#6b7280",
+      textTransform: "none",
+      fontWeight: 600,
+    }),
+    option: (base, state) => ({
+      ...base,
+      padding: "10px 12px",
+      backgroundColor: state.isSelected
+        ? "#dbeafe"
+        : state.isFocused
+        ? "#eff6ff"
+        : "white",
+      color: "#111827",
+      fontSize: 14,
+    }),
+    singleValue: (base) => ({ ...base, fontWeight: 600 }),
+    placeholder: (base) => ({ ...base, color: "#9ca3af" }),
+  };
+
+  const filterOption = (option, rawInput) => {
+    const q = rawInput.trim().toLowerCase();
+    if (!q) return true;
+    const m = option.data.meta;
+    const hay = [m.title, m.main, m.sub, m.month]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  };
+
+  const Option = (props) => {
+    const m = props.data.meta;
+    return (
+      <components.Option {...props}>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium text-gray-800">{m.title}</div>
+            <div className="text-xs text-gray-500">
+              {m.main} • {m.sub} • {m.month}
+            </div>
+          </div>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full ${
+              m.published
+                ? "bg-green-100 text-green-700"
+                : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            {m.published ? "Published" : "Draft"}
+          </span>
+        </div>
+      </components.Option>
+    );
+  };
+
+  const SingleValue = (props) => {
+    const m = props.data.meta;
+    return (
+      <components.SingleValue {...props}>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-800">{m.title}</span>
+          <span className="text-xs text-gray-500">
+            • {m.main} • {m.sub} • {m.month}
+          </span>
+        </div>
+      </components.SingleValue>
+    );
+  };
+
+  // ---------- Handlers ----------
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null;
     setFile(f);
@@ -134,7 +270,6 @@ const BulkEnrollment = () => {
     e.preventDefault();
     const f = e.dataTransfer?.files?.[0];
     if (!f) return;
-    // Accept Excel files
     const ok = /\.(xlsx|xls)$/i.test(f.name);
     if (!ok) {
       alert("Please drop an Excel file (.xlsx or .xls).");
@@ -207,8 +342,8 @@ const BulkEnrollment = () => {
         message: data.message || "",
         failedUsers,
         failedCount,
-        successCount, // may be null
-        totalCount, // may be null
+        successCount,
+        totalCount,
       });
 
       setStatusInfo({
@@ -265,6 +400,7 @@ const BulkEnrollment = () => {
     }
   };
 
+  // ---------- Render ----------
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-start p-6">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-4xl">
@@ -296,137 +432,128 @@ const BulkEnrollment = () => {
               Select Course
             </label>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search by title, category, subcategory, or month..."
-                    className="w-full border rounded-lg pl-10 pr-10 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    🔎
-                  </span>
-                  {query && (
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-600">
+                {filteredFlatOptions.length
+                  ? `${filteredFlatOptions.length} courses`
+                  : "No courses found"}
+              </div>
+
+              <div className="inline-flex items-center gap-2 text-sm">
+                <span className="text-gray-500">Filter:</span>
+                <div className="bg-gray-100 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPublishedOnly(false)}
+                    className={`px-3 py-1 rounded-md ${
+                      !publishedOnly
+                        ? "bg-white shadow text-gray-800"
+                        : "text-gray-600"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPublishedOnly(true)}
+                    className={`px-3 py-1 rounded-md ${
+                      publishedOnly
+                        ? "bg-white shadow text-gray-800"
+                        : "text-gray-600"
+                    }`}
+                  >
+                    Published
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <Select
+              isClearable
+              placeholder="Search by title, main/sub category, or month..."
+              options={groupedOptions}
+              value={selectedOption}
+              onChange={(opt) => setCourseId(opt?.value || "")}
+              filterOption={filterOption}
+              components={{
+                Option,
+                SingleValue,
+                IndicatorSeparator: () => null,
+              }}
+              styles={selectStyles}
+              noOptionsMessage={() => "No matches"}
+            />
+
+            {/* Selected Course Preview */}
+            {selectedCourse && (
+              <div className="border rounded-xl p-4 bg-gray-50 flex gap-4 mt-3">
+                {/* Optional thumbnail
+                <img
+                  src={selectedCourse.courseThumbnail || ""}
+                  alt={selectedCourse.courseTitle || "Course thumbnail"}
+                  className="w-24 h-24 rounded-lg object-cover bg-white border"
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
+                /> */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-gray-800">
+                      {selectedCourse.courseTitle || "Untitled"}
+                    </h3>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        selectedCourse.isPublished
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      {selectedCourse.isPublished ? "Published" : "Draft"}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                    <span>
+                      Month: <b>{selectedCourse.month || "-"}</b>
+                    </span>
+                    <span>
+                      Main:{" "}
+                      <b>{readName(selectedCourse.mainCategory) || "-"}</b>
+                    </span>
+                    <span>
+                      Sub: <b>{readName(selectedCourse.subCategory) || "-"}</b>
+                    </span>
+                    {selectedCourse.coursePrice != null && (
+                      <span>
+                        Price: Rs.{" "}
+                        <b>
+                          {Number(selectedCourse.coursePrice).toLocaleString()}
+                        </b>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      aria-label="Clear search"
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedCourse._id || "");
+                        alert("Course ID copied to clipboard");
+                      }}
+                      className="text-sm px-3 py-1 rounded-md border hover:bg-white"
                     >
-                      ✕
+                      Copy Course ID
                     </button>
-                  )}
-                </div>
-
-                <label className="inline-flex items-center gap-2 text-sm text-gray-600 select-none">
-                  <input
-                    type="checkbox"
-                    checked={publishedOnly}
-                    onChange={(e) => setPublishedOnly(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  Published only
-                </label>
-              </div>
-
-              <div>
-                <select
-                  value={courseId}
-                  onChange={(e) => setCourseId(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  <option value="" disabled>
-                    {filteredOptions.length
-                      ? `Select a course (${filteredOptions.length} available)`
-                      : "No courses found"}
-                  </option>
-                  {filteredOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Selected Course Preview */}
-              {selectedCourse && (
-                <div className="border rounded-xl p-4 bg-gray-50 flex gap-4">
-                  {/* Thumbnail  <img
-                    src={selectedCourse.courseThumbnail || ""}
-                    alt={selectedCourse.courseTitle || "Course thumbnail"}
-                    className="w-24 h-24 rounded-lg object-cover bg-white border"
-                    onError={(e) => {
-                      e.currentTarget.style.visibility = "hidden";
-                    }}
-                  />*/}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-gray-800">
-                        {selectedCourse.courseTitle || "Untitled"}
-                      </h3>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          selectedCourse.isPublished
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-200 text-gray-700"
-                        }`}
-                      >
-                        {selectedCourse.isPublished ? "Published" : "Draft"}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                      <span>
-                        Month: <b>{selectedCourse.month || "-"}</b>
-                      </span>
-
-                      <span>
-                        Main:{" "}
-                        <b>{readName(selectedCourse.mainCategory) || "-"}</b>
-                      </span>
-                      <span>
-                        Sub:{" "}
-                        <b>{readName(selectedCourse.subCategory) || "-"}</b>
-                      </span>
-                      {selectedCourse.coursePrice != null && (
-                        <span>
-                          Price: Rs.
-                          <b>
-                            {Number(
-                              selectedCourse.coursePrice
-                            ).toLocaleString()}
-                          </b>
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            selectedCourse._id || ""
-                          );
-                          alert("Course ID copied to clipboard");
-                        }}
-                        className="text-sm px-3 py-1 rounded-md border hover:bg-white"
-                      >
-                        Copy Course ID
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCourseId("")}
-                        className="text-sm px-3 py-1 rounded-md border hover:bg-white"
-                      >
-                        Clear selection
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCourseId("")}
+                      className="text-sm px-3 py-1 rounded-md border hover:bg-white"
+                    >
+                      Clear selection
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* File Upload */}
@@ -529,7 +656,6 @@ const BulkEnrollment = () => {
               onClick={() => {
                 setFile(null);
                 setCourseId("");
-                setQuery("");
                 setPublishedOnly(false);
                 setError("");
                 setResult(null);

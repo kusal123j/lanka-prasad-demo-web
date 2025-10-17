@@ -16,18 +16,6 @@ const paymentSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    address: {
-      type: String,
-      required: true,
-    },
-    phonenumber1: {
-      type: String,
-      required: true,
-    },
-    phonenumber2: {
-      type: String,
-      required: true,
-    },
     paymentStatus: {
       type: String,
       enum: ["pending", "completed", "failed"],
