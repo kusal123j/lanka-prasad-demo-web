@@ -161,19 +161,21 @@ const BulkUnrollemntPage = () => {
     }
     setLoading(true);
     try {
-      // If your educator router is mounted at /api/educator, update the path below:
-      // const url = joinUrl(backend_url, "/api/educator/unenroll/bulk");
-      const url = joinUrl(backend_url, "/educator/unenroll/bulk");
       const payload = { courseId: selectedCourseId }; // backend supports courseId or courseID
-      const res = await axios.post(url, payload, { withCredentials: true });
+      const response = await axios.post(
+        backend_url + "/api/educator/unenroll/bulk",
+        payload,
+        { withCredentials: true }
+      );
+      const res = response.data;
 
-      if (res?.data?.ok) {
-        const count = res?.data?.unenrolledCount ?? 0;
+      if (res.ok) {
+        const count = res.unenrolledCount ?? 0;
         toast.success(
-          `${res?.data?.message || "Unenrolled successfully"}. Count: ${count}`
+          `${res.message || "Unenrolled successfully"}. Count: ${count}`
         );
       } else {
-        toast.error(res?.data?.message || "Failed to unenroll students");
+        toast.error(res.message || "Failed to unenroll students");
       }
     } catch (err) {
       const msg =

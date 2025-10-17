@@ -3,10 +3,20 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { AppContext } from "../../Context/AppContext";
 
-// Allowed Exam Years (matching your controller)
-const ALLOWED_EXAM_YEARS = ["2025", "2026", "2027"];
+// Backend-aligned constants
+const EXAM_YEAR_OPTIONS = [
+  "Grade 6",
+  "Grade 7",
+  "Grade 8",
+  "Grade 9",
+  "Grade 10",
+  "Grade 11",
+];
+const ALLOWED_GENDERS = ["Male", "Female", "Other"];
+const PHONE_REGEX = /^[0-9]{10}$/;
+const NAME_REGEX = /^[A-Za-z\s\-]{2,15}$/;
 
-// Months for filtering/enrollment UI
+// Months for enrollment UI (unchanged)
 const MONTHS = [
   "January",
   "February",
@@ -22,74 +32,16 @@ const MONTHS = [
   "December",
 ];
 
-// --- NIC parsing logic (handles old 9+V/X and new 12-digit NICs) ---
-const parseNIC = (nicRaw) => {
-  if (!nicRaw) return { error: "Please enter an NIC." };
+// Optional helper: verify YYYY-MM-DD
+function isIsoDate(str) {
+  if (typeof str !== "string") return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.toISOString().slice(0, 10) === str;
+}
 
-  const nic = nicRaw.replace(/[\s-]/g, "").toUpperCase();
-  const today = new Date();
-
-  const formatDate = (d) =>
-    d.getFullYear() +
-    "-" +
-    String(d.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(d.getDate()).padStart(2, "0");
-
-  // Old format: 9 digits + V/X
-  if (/^[0-9]{9}[VX]$/.test(nic)) {
-    const yy = parseInt(nic.slice(0, 2), 10);
-    let dayCode = parseInt(nic.slice(2, 5), 10);
-    if (isNaN(dayCode)) return { error: "Invalid NIC day code." };
-
-    let gender = "Male";
-    if (dayCode > 500) {
-      gender = "Female";
-      dayCode -= 500;
-    }
-    if (dayCode < 1 || dayCode > 366)
-      return { error: "Invalid NIC day-of-year." };
-
-    let year = 1900 + yy;
-    let birth = new Date(year, 0, dayCode);
-    if (birth > today) {
-      year = 2000 + yy;
-      birth = new Date(year, 0, dayCode);
-    }
-    if (birth > today)
-      return { error: "NIC parsed to a future date. Check the NIC." };
-
-    return { birthday: formatDate(birth), gender };
-  }
-
-  // New format: 12 digits
-  if (/^[0-9]{12}$/.test(nic)) {
-    const year = parseInt(nic.slice(0, 4), 10);
-    let dayCode = parseInt(nic.slice(4, 7), 10);
-    if (isNaN(dayCode)) return { error: "Invalid NIC day code." };
-
-    let gender = "Male";
-    if (dayCode > 500) {
-      gender = "Female";
-      dayCode -= 500;
-    }
-    if (dayCode < 1 || dayCode > 366)
-      return { error: "Invalid NIC day-of-year." };
-
-    const birth = new Date(year, 0, dayCode);
-    if (birth > today)
-      return { error: "NIC parsed to a future date. Check the NIC." };
-
-    return { birthday: formatDate(birth), gender };
-  }
-
-  return {
-    error:
-      "Unrecognized NIC format. Accepts old (9 digits + V/X) or new (12 digits). Remove spaces/hyphens.",
-  };
-};
-
-// 7-char alphanumeric password generator
+// 7-char password generator (>=6 satisfies backend)
 const generatePassword = (len = 7) => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz0123456789";
   let out = "";
@@ -103,24 +55,27 @@ export default function ManullStudentRegister() {
   const [nicError, setNicError] = useState("");
   const { backend_url, categories, allCourses } = useContext(AppContext);
 
-  // APIs — adjust ENROLL_API if needed
   const REGISTER_API = backend_url + "/api/educator/manully-register-user";
   const ENROLL_API = backend_url + "/api/educator/enroll-multiple-courses";
 
   const currentMonthName = MONTHS[new Date().getMonth()];
 
-  // Register form
+  // Form state
   const [form, setForm] = useState({
     name: "",
     lastname: "",
     phonenumber: "",
-    NIC: "",
-    ExamYear: ALLOWED_EXAM_YEARS[0],
+
+    ExamYear: EXAM_YEAR_OPTIONS[0],
     role: "student",
     password: generatePassword(),
-    institute: "Online",
     BirthDay: "",
     Gender: "",
+    Address: "",
+    School: "",
+    District: "",
+    tuteDliveryPhoennumebr1: "",
+    tuteDliveryPhoennumebr2: "",
   });
 
   // Enrollment state
@@ -130,27 +85,7 @@ export default function ManullStudentRegister() {
   const [search, setSearch] = useState("");
   const [selectedCourseIds, setSelectedCourseIds] = useState([]);
 
-  // Parse NIC with a slight debounce
-  useEffect(() => {
-    if (!form.NIC) {
-      setNicError("");
-      setForm((f) => ({ ...f, BirthDay: "", Gender: "" }));
-      return;
-    }
-    const t = setTimeout(() => {
-      const res = parseNIC(form.NIC);
-      if (res.error) {
-        setNicError(res.error);
-        setForm((f) => ({ ...f, BirthDay: "", Gender: "" }));
-      } else {
-        setNicError("");
-        setForm((f) => ({ ...f, BirthDay: res.birthday, Gender: res.gender }));
-      }
-    }, 400);
-    return () => clearTimeout(t);
-  }, [form.NIC]);
-
-  // Pull from context (with safe defaults)
+  // Context data
   const ctxCategories = Array.isArray(categories) ? categories : [];
   const ctxCoursesRaw = Array.isArray(allCourses) ? allCourses : [];
   const ctxCourses = useMemo(
@@ -158,16 +93,13 @@ export default function ManullStudentRegister() {
     [ctxCoursesRaw]
   );
 
-  // Simple "loading" for catalog if context not yet ready
   const catalogLoading = ctxCategories.length === 0 && ctxCourses.length === 0;
 
-  // Derived: subcategories for selected main category
   const availableSubCats = useMemo(() => {
     const main = ctxCategories.find((m) => m._id === selectedMainCategory);
     return main?.subCategories || [];
   }, [ctxCategories, selectedMainCategory]);
 
-  // Filtered courses by main, sub, month, search
   const filteredCourses = useMemo(() => {
     const s = search.trim().toLowerCase();
     return ctxCourses.filter((c) => {
@@ -200,6 +132,16 @@ export default function ManullStudentRegister() {
     setForm((f) => ({ ...f, [name]: value }));
   };
 
+  const handlePhoneInput = (e) => {
+    const { name, value } = e.target;
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    // 👇 Add this validation before updating state
+    if (!value.startsWith("07") && value.length >= 2) {
+      return; // Stop updating if the number doesn't start with 07
+    }
+    setForm((f) => ({ ...f, [name]: digits }));
+  };
+
   const handleRoleChange = (e) => {
     const next = e.target.value;
     if (next === "admin") {
@@ -222,18 +164,22 @@ export default function ManullStudentRegister() {
       name: "",
       lastname: "",
       phonenumber: "",
-      NIC: "",
-      ExamYear: ALLOWED_EXAM_YEARS[0],
+
+      ExamYear: EXAM_YEAR_OPTIONS[0],
       role: "student",
       password: generatePassword(),
-      institute: "Online",
       BirthDay: "",
       Gender: "",
+      Address: "",
+      School: "",
+      District: "",
+      tuteDliveryPhoennumebr1: "",
+      tuteDliveryPhoennumebr2: "",
     });
     setSelectedCourseIds([]);
   };
 
-  // Enroll API call
+  // Enroll API call (unchanged)
   const enrollSelectedCourses = async () => {
     if (!selectedCourseIds.length) return { ok: true, skipped: true };
     try {
@@ -242,7 +188,6 @@ export default function ManullStudentRegister() {
         courseIds: selectedCourseIds,
       };
       const { data } = await axios.post(ENROLL_API, payload);
-      // data = { success: true, results: [{ courseId, success, message }, ...] }
       const results = Array.isArray(data?.results) ? data.results : [];
       const successCount = results.filter((r) => r.success).length;
       const dupCount = results.filter(
@@ -260,7 +205,6 @@ export default function ManullStudentRegister() {
           otherFail ? `, ${otherFail} failed` : ""
         }.`
       );
-
       return { ok: true, results };
     } catch (err) {
       const msg = err?.response?.data?.message || "Enrollment failed.";
@@ -272,69 +216,120 @@ export default function ManullStudentRegister() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic client-side checks
+    // Required fields per backend
     const required = [
       "name",
       "lastname",
       "phonenumber",
-      "NIC",
-      "ExamYear",
-      "role",
       "password",
-      "institute",
       "BirthDay",
       "Gender",
+      "ExamYear",
+      "Address",
+      "School",
+      "District",
+      "tuteDliveryPhoennumebr1",
+      "tuteDliveryPhoennumebr2",
     ];
+
     for (const k of required) {
-      if (!form[k]) {
+      if (!String(form[k] ?? "").trim()) {
         toast.error(`Please fill ${k}.`);
         return;
       }
     }
-    if (!/^[0-9]{10}$/.test(form.phonenumber)) {
+
+    // Validate names
+    if (!NAME_REGEX.test(form.name)) {
+      toast.error(
+        "Invalid first name (2–15 letters, spaces and hyphens allowed)."
+      );
+      return;
+    }
+    if (!NAME_REGEX.test(form.lastname)) {
+      toast.error(
+        "Invalid last name (2–15 letters, spaces and hyphens allowed)."
+      );
+      return;
+    }
+
+    // Validate phones
+    if (!PHONE_REGEX.test(form.phonenumber)) {
       toast.error("Phone Number must be 10 digits.");
       return;
     }
-    if (!ALLOWED_EXAM_YEARS.includes(String(form.ExamYear))) {
-      toast.error("Invalid Exam Year. Allowed: 2025, 2026, 2027.");
+    if (
+      !PHONE_REGEX.test(form.tuteDliveryPhoennumebr1) ||
+      !PHONE_REGEX.test(form.tuteDliveryPhoennumebr2)
+    ) {
+      toast.error("Tute delivery phone numbers must be 10 digits.");
       return;
     }
-    if (nicError) {
-      toast.error(nicError);
+    if (form.tuteDliveryPhoennumebr1 === form.tuteDliveryPhoennumebr2) {
+      toast.error(
+        "tuteDliveryPhoennumebr1 and tuteDliveryPhoennumebr2 must be different."
+      );
+      return;
+    }
+
+    // Exam year and gender
+    if (!EXAM_YEAR_OPTIONS.includes(String(form.ExamYear))) {
+      toast.error(
+        `Invalid Exam Year. Allowed: ${EXAM_YEAR_OPTIONS.join(", ")}.`
+      );
+      return;
+    }
+    if (!ALLOWED_GENDERS.includes(String(form.Gender))) {
+      toast.error("Invalid Gender value.");
+      return;
+    }
+
+    // Date + password
+    if (!isIsoDate(String(form.BirthDay))) {
+      toast.error("Invalid BirthDay format (use YYYY-MM-DD).");
+      return;
+    }
+    if (String(form.password).length < 6) {
+      toast.error("Password must be at least 6 characters long.");
       return;
     }
 
     try {
       setLoading(true);
 
-      // 1) Register
+      // Build backend-aligned payload (do not send NIC or institute)
       const payload = {
-        name: form.name,
-        lastname: form.lastname,
-        phonenumber: form.phonenumber,
-        NIC: form.NIC,
-        ExamYear: String(form.ExamYear),
-        role: form.role,
+        name: form.name.trim(),
+        lastname: form.lastname.trim(),
+        phonenumber: form.phonenumber.trim(),
         password: form.password,
-        institute: form.institute,
-        BirthDay: form.BirthDay, // YYYY-MM-DD
-        Gender: form.Gender, // Male | Female
+        BirthDay: form.BirthDay,
+        Gender: form.Gender,
+        Address: form.Address.trim(),
+        School: form.School.trim(),
+        ExamYear: String(form.ExamYear),
+        District: form.District.trim(),
+        tuteDliveryPhoennumebr1: form.tuteDliveryPhoennumebr1,
+        tuteDliveryPhoennumebr2: form.tuteDliveryPhoennumebr2,
+        role: form.role, // optional, backend validates
       };
 
       const regRes = await axios.post(REGISTER_API, payload);
+      const studentId = regRes?.data?.data?.studentId;
       toast.success(
         regRes?.data?.message || "User registered successfully by admin."
       );
 
-      // 2) Enroll (if courses selected)
+      // Enroll selected courses
       const enrollRes = await enrollSelectedCourses();
       if (!enrollRes.ok) {
-        // proceed to show login message below even if enrollment failed
+        // continue
       }
 
-      // Offer login details to copy
+      // Offer login details to copy (include studentId if available)
       const loginMessage = `Your Login Details 🔒
 
+Student ID: ${studentId || "-"}
 📱 Phone Number: ${form.phonenumber}
 🔑 Password: ${form.password}
 
@@ -343,7 +338,7 @@ https://downloads.lasithaprasad.com/
 
 Please do not share these login details with others.
 
-- From Lasitha Prasad`;
+- From Lanka Prasad`;
 
       if (window.confirm(`${loginMessage}\n\nClick OK to copy details.`)) {
         await navigator.clipboard.writeText(loginMessage);
@@ -355,7 +350,7 @@ Please do not share these login details with others.
       const msg = error?.response?.data?.message || "Failed to register user.";
       const status = error?.response?.status;
 
-      // If the user already exists, offer to continue with enrollment
+      // If user exists, offer enrollment for the selected courses
       if ((status === 409 || /exist/i.test(msg)) && selectedCourseIds.length) {
         const cont = window.confirm(
           "User already exists. Do you want to enroll the selected courses to this phone number?"
@@ -374,20 +369,25 @@ Please do not share these login details with others.
     }
   };
 
+  const tuteSame =
+    form.tuteDliveryPhoennumebr1 &&
+    form.tuteDliveryPhoennumebr2 &&
+    form.tuteDliveryPhoennumebr1 === form.tuteDliveryPhoennumebr2;
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-          Manual Student Register
+          Manual User Register
         </h1>
         <p className="text-gray-600">
-          Admins can register a student manually. NIC will auto-fill Gender and
-          Birthday. Then enroll the student into multiple courses.
+          Admins can register a user manually. Optionally enter NIC to auto-fill
+          Gender and Birthday. Then enroll the user into multiple courses.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Identity Section */}
+        {/* Identity */}
         <section className={sectionCls}>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Identity</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -404,6 +404,9 @@ Please do not share these login details with others.
                 placeholder="e.g., Kusal"
                 disabled={loading}
               />
+              <p className="mt-1 text-xs text-gray-500">
+                2–15 letters, spaces and hyphens allowed.
+              </p>
             </div>
             <div>
               <label className={labelCls} htmlFor="lastname">
@@ -418,47 +421,30 @@ Please do not share these login details with others.
                 placeholder="e.g., Janana"
                 disabled={loading}
               />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className={labelCls} htmlFor="NIC">
-                NIC (Sri Lanka)
-              </label>
-              <input
-                id="NIC"
-                name="NIC"
-                value={form.NIC}
-                onChange={handleChange}
-                className={`${inputCls} ${
-                  nicError
-                    ? "border-red-400 focus:ring-red-500 focus:border-red-500"
-                    : ""
-                }`}
-                placeholder="Old: 861234567V  |  New: 200012312345"
-                disabled={loading}
-              />
-              {nicError ? (
-                <p className="mt-1 text-sm text-red-600">{nicError}</p>
-              ) : (
-                <p className="mt-1 text-sm text-gray-500">
-                  Gender and Birthday will be auto-filled from NIC.
-                </p>
-              )}
+              <p className="mt-1 text-xs text-gray-500">
+                2–15 letters, spaces and hyphens allowed.
+              </p>
             </div>
 
             <div>
               <label className={labelCls} htmlFor="Gender">
                 Gender
               </label>
-              <input
+              <select
                 id="Gender"
                 name="Gender"
                 value={form.Gender}
-                readOnly
-                className={`${inputCls} bg-gray-100`}
-                placeholder="Auto"
+                onChange={handleChange}
+                className={inputCls}
                 disabled={loading}
-              />
+              >
+                <option value="">Select gender</option>
+                {ALLOWED_GENDERS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelCls} htmlFor="BirthDay">
@@ -469,8 +455,8 @@ Please do not share these login details with others.
                 name="BirthDay"
                 type="date"
                 value={form.BirthDay}
-                readOnly
-                className={`${inputCls} bg-gray-100`}
+                onChange={handleChange}
+                className={inputCls}
                 placeholder="YYYY-MM-DD"
                 disabled={loading}
               />
@@ -486,42 +472,25 @@ Please do not share these login details with others.
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls} htmlFor="phonenumber">
-                Phone Number
+                Phone Number ( start from 07 )*
               </label>
               <input
                 id="phonenumber"
                 name="phonenumber"
                 type="tel"
                 value={form.phonenumber}
-                maxLength="10"
-                pattern="[0-9]{10}"
-                onChange={handleChange}
+                onChange={handlePhoneInput}
                 className={inputCls}
                 placeholder="07XXXXXXXX"
                 disabled={loading}
+                pattern="^07[0-9]{8}$"
+                title="Phone number must start with 07 and have 10 digits"
               />
             </div>
 
             <div>
-              <label className={labelCls} htmlFor="institute">
-                Institute
-              </label>
-              <select
-                id="institute"
-                name="institute"
-                value={form.institute}
-                onChange={handleChange}
-                className={inputCls}
-                disabled={loading}
-              >
-                <option>Online</option>
-                <option>SyZyGy - Gampaha</option>
-              </select>
-            </div>
-
-            <div>
               <label className={labelCls} htmlFor="ExamYear">
-                Exam Year
+                Grade
               </label>
               <select
                 id="ExamYear"
@@ -531,7 +500,7 @@ Please do not share these login details with others.
                 className={inputCls}
                 disabled={loading}
               >
-                {ALLOWED_EXAM_YEARS.map((y) => (
+                {EXAM_YEAR_OPTIONS.map((y) => (
                   <option key={y} value={y}>
                     {y}
                   </option>
@@ -539,7 +508,52 @@ Please do not share these login details with others.
               </select>
             </div>
 
+            <div>
+              <label className={labelCls} htmlFor="School">
+                School
+              </label>
+              <input
+                id="School"
+                name="School"
+                value={form.School}
+                onChange={handleChange}
+                className={inputCls}
+                placeholder="Enter school name"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls} htmlFor="District">
+                District
+              </label>
+              <input
+                id="District"
+                name="District"
+                value={form.District}
+                onChange={handleChange}
+                className={inputCls}
+                placeholder="Enter district"
+                disabled={loading}
+              />
+            </div>
+
             <div className="md:col-span-2">
+              <label className={labelCls} htmlFor="Address">
+                Address
+              </label>
+              <input
+                id="Address"
+                name="Address"
+                value={form.Address}
+                onChange={handleChange}
+                className={inputCls}
+                placeholder="Enter full address"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
               <label className={labelCls} htmlFor="role">
                 Role
               </label>
@@ -558,6 +572,45 @@ Please do not share these login details with others.
               <p className="mt-1 text-sm text-blue-600">
                 Default role is student. Admin selection requires confirmation.
               </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className={labelCls} htmlFor="tuteDliveryPhoennumebr1">
+                Tute Delivery Phone 1
+              </label>
+              <input
+                id="tuteDliveryPhoennumebr1"
+                name="tuteDliveryPhoennumebr1"
+                type="tel"
+                value={form.tuteDliveryPhoennumebr1}
+                onChange={handlePhoneInput}
+                className={`${inputCls} ${tuteSame ? "border-red-400" : ""}`}
+                placeholder="07XXXXXXXX"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className={labelCls} htmlFor="tuteDliveryPhoennumebr2">
+                Tute Delivery Phone 2
+              </label>
+              <input
+                id="tuteDliveryPhoennumebr2"
+                name="tuteDliveryPhoennumebr2"
+                type="tel"
+                value={form.tuteDliveryPhoennumebr2}
+                onChange={handlePhoneInput}
+                className={`${inputCls} ${tuteSame ? "border-red-400" : ""}`}
+                placeholder="07XXXXXXXX"
+                disabled={loading}
+              />
+              {tuteSame && (
+                <p className="mt-1 text-sm text-red-600">
+                  tuteDliveryPhoennumebr1 and tuteDliveryPhoennumebr2 must be
+                  different.
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -579,7 +632,7 @@ Please do not share these login details with others.
                 disabled={loading}
               />
               <p className="mt-1 text-sm text-gray-500">
-                Password contains letters and numbers.
+                Must be at least 6 characters. You can regenerate and copy.
               </p>
             </div>
             <div className="flex gap-2">
@@ -805,8 +858,8 @@ Please do not share these login details with others.
           </div>
 
           <p className="mt-2 text-sm text-gray-500">
-            After registering the student, we will enroll them into the selected
-            course(s){/* for the chosen month (filter only). */}.
+            After registering the user, we will enroll them into the selected
+            course(s).
           </p>
         </section>
 

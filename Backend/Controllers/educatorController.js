@@ -1049,114 +1049,239 @@ export const unenrollstudentManually = async (req, res) => {
   }
 };
 
-// Register the user manully.
-export const registerUserManually = async (req, res) => {
+const allowedExamYears = [
+  "Grade 6",
+  "Grade 7",
+  "Grade 8",
+  "Grade 9",
+  "Grade 10",
+  "Grade 11",
+];
+const allowedGenders = ["Male", "Female", "Other"];
+const allowedRoles = ["student", "instructor", "admin"]; // Optional: adjust to your roles
+
+const phoneRegex = /^[0-9]{10}$/;
+const nameRegex = /^[A-Za-z\s\-]{2,15}$/;
+
+// If you already have a util for this, reuse it.
+function isIsoDate(str) {
+  if (typeof str !== "string") return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.toISOString().slice(0, 10) === str;
+}
+
+// Register user by admin (new version)
+export const registerUserByAdmin = async (req, res) => {
   try {
     const {
       name,
       lastname,
       phonenumber,
-      NIC,
-      ExamYear,
-      role,
       password,
-      institute,
       BirthDay,
       Gender,
+      Address,
+      School,
+      ExamYear,
+      District,
+      tuteDliveryPhoennumebr1,
+      tuteDliveryPhoennumebr2,
+      role, // optional
     } = req.body;
-    const allowedExamYears = [
-      "Grade 6",
-      "Grade 7",
-      "Grade 8",
-      "Grade 9",
-      "Grade 10",
-      "Grade 11",
-    ];
-    // ✅ Validate required fields
-    if (
-      !name ||
-      !lastname ||
-      !phonenumber ||
-      !NIC ||
-      !ExamYear ||
-      !role ||
-      !password ||
-      !institute ||
-      !BirthDay ||
-      !Gender
-    ) {
-      return res.status(400).json({ message: "All fields are required." });
+
+    // Required fields (mirrors the self-register endpoint)
+    const required = {
+      name,
+      lastname,
+      Address,
+      School,
+      District,
+      phonenumber,
+      password,
+      BirthDay,
+      Gender,
+      ExamYear,
+      tuteDliveryPhoennumebr1,
+      tuteDliveryPhoennumebr2,
+    };
+
+    for (const [key, value] of Object.entries(required)) {
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ""
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `${key} is required.`,
+        });
+      }
     }
-    // === Exam year ===
+
+    // Validate names
+    if (!nameRegex.test(String(name))) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid first name (2–15 letters, spaces and hyphens allowed).",
+      });
+    }
+    if (lastname && !nameRegex.test(String(lastname))) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid last name (2–15 letters, spaces and hyphens allowed).",
+      });
+    }
+
+    // Validate ExamYear and Gender
     if (!allowedExamYears.includes(String(ExamYear))) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Exam Year. Allowed: 2025, 2026, 2027.",
+        message: `Invalid Exam Year. Allowed: ${allowedExamYears.join(", ")}.`,
       });
     }
-    // ✅ Check if phone or NIC already exists
-    const existingUser = await userModel.findOne({
-      $or: [{ phonenumber }, { NIC }],
-    });
-    if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "User with phone or NIC already exists." });
+    if (!allowedGenders.includes(String(Gender))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Gender value.",
+      });
     }
 
-    // ✅ Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Validate phone numbers
+    if (!phoneRegex.test(String(phonenumber))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number (must be 10 digits).",
+      });
+    }
+    if (
+      !phoneRegex.test(String(tuteDliveryPhoennumebr1)) ||
+      !phoneRegex.test(String(tuteDliveryPhoennumebr2))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid tute delivery phone number(s) (must be 10 digits).",
+      });
+    }
+    if (String(tuteDliveryPhoennumebr1) === String(tuteDliveryPhoennumebr2)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "tuteDliveryPhoennumebr1 and tuteDliveryPhoennumebr2 must be different.",
+      });
+    }
 
-    // Generate student ID & OTP
+    // Validate BirthDay (expects YYYY-MM-DD)
+    if (!isIsoDate(String(BirthDay))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid BirthDay format (use YYYY-MM-DD).",
+      });
+    }
+
+    // Optional string type checks
+    if (
+      Address !== undefined &&
+      Address !== null &&
+      typeof Address !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Address must be a string.",
+      });
+    }
+    if (School !== undefined && School !== null && typeof School !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "School must be a string.",
+      });
+    }
+    if (
+      District !== undefined &&
+      District !== null &&
+      typeof District !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "District must be a string.",
+      });
+    }
+
+    // Password strength (simple)
+    if (String(password).length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long.",
+      });
+    }
+
+    // Optional: validate role if provided
+    if (role !== undefined && role !== null) {
+      if (!allowedRoles.includes(String(role))) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid role. Allowed: ${allowedRoles.join(", ")}.`,
+        });
+      }
+    }
+
+    // Duplicate checks
+    const existingUser = await userModel.findOne({ phonenumber });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "User already exists with this phone number.",
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(String(password), 10);
+
+    // Generate a unique studentId
     const studentId = await generateStudentId();
 
-    // ✅ Create user
-    const newUser = new userModel({
+    // Create user (no session manipulation for admin-created users)
+    const user = await userModel.create({
       name,
       lastname,
+      studentId,
       phonenumber,
-      NIC,
-      ExamYear,
-      role,
       password: hashedPassword,
-      institute,
       BirthDay,
       Gender,
-      studentId,
+      Address,
+      School,
+      ExamYear,
+      District,
+      tuteDliveryPhoennumebr1,
+      tuteDliveryPhoennumebr2,
+      ...(role ? { role } : {}), // only set if provided
     });
 
-    await newUser.save();
-    const message = `
-Your Login Details 🔒
-
-📱 Phone Number: ${newUser.phonenumber}
-🔑 Password: ${password}
-
-Download the software here 👇
-https://downloads.lasithaprasad.com/
-  `;
-
-    // Send Login credentials via SMS
-    try {
-      await sendSMSWithRetry(newUser.phonenumber, "TEAMICT", message, 5, 3000);
-      return res.status(201).json({
-        success: true,
-        message: "User registered successfully. Login credentials sent.",
-      });
-    } catch (smsError) {
-      console.warn(
-        "Failed to send Login credentials after retries:",
-        smsError.message
-      );
-      return res.status(201).json({
-        success: true,
-        message:
-          "User registered successfully by admin., but failed to send login creadentials. Please retry.",
-      });
-    }
+    return res.status(201).json({
+      success: true,
+      message: "User registered successfully by admin.",
+      data: {
+        id: user._id,
+        studentId: user.studentId,
+        phonenumber: user.phonenumber,
+        role: user.role,
+      },
+    });
   } catch (error) {
-    console.error("Manual register error:", error);
-    return res.status(500).json({ message: "Internal server error." });
+    console.error("Admin register error:", error);
+    if (error?.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || "field";
+      return res
+        .status(409)
+        .json({ success: false, message: `Duplicate value for ${field}.` });
+    }
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error. Please try again." });
   }
 };
 

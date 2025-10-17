@@ -217,7 +217,8 @@ const CategoryManager = () => {
         toast.success("Main category created");
         setMainName("");
         setShowMainModal(false);
-        await Promise.resolve(fetchCategories?.());
+        setTimeout(() => window.location.reload(), 1000); // 1 second
+
         // expand newly created if present
         if (data?.mainCategory?._id) {
           setExpanded((prev) => new Set([...prev, data.mainCategory._id]));
@@ -248,7 +249,8 @@ const CategoryManager = () => {
         setSubName("");
         setSelectedMainForSub("");
         setShowSubModal(false);
-        await Promise.resolve(fetchCategories?.());
+        setTimeout(() => window.location.reload(), 1000);
+
         setExpanded((prev) => new Set([...prev, selectedMainForSub]));
       }
     } catch (err) {
@@ -279,7 +281,7 @@ const CategoryManager = () => {
       );
       if (data?.success) {
         toast.success("Main category updated");
-        await Promise.resolve(fetchCategories?.());
+        setTimeout(() => window.location.reload(), 1000);
       }
       cancelEditMain();
     } catch (err) {
@@ -310,7 +312,7 @@ const CategoryManager = () => {
       );
       if (data?.success) {
         toast.success("Subcategory updated");
-        await Promise.resolve(fetchCategories?.());
+        setTimeout(() => window.location.reload(), 1000);
       }
       cancelEditSub();
     } catch (err) {
@@ -333,7 +335,7 @@ const CategoryManager = () => {
           setDeletingMainId(main._id);
           await axios.delete(`${backend_url}/api/educator/main/${main._id}`);
           toast.success("Main category deleted");
-          await Promise.resolve(fetchCategories?.());
+          setTimeout(() => window.location.reload(), 1000);
           setConfirm({
             open: false,
             title: "",
@@ -363,7 +365,7 @@ const CategoryManager = () => {
           setDeletingSubId(sub._id);
           await axios.delete(`${backend_url}/api/educator/sub/${sub._id}`);
           toast.success("Subcategory deleted");
-          await Promise.resolve(fetchCategories?.());
+          setTimeout(() => window.location.reload(), 1000);
           setConfirm({
             open: false,
             title: "",
@@ -425,7 +427,7 @@ const CategoryManager = () => {
             )
           );
           toast.success(`Deleted ${ids.length} subcategory(s)`);
-          await Promise.resolve(fetchCategories?.());
+          setTimeout(() => window.location.reload(), 1000);
           // Clear selection after delete
           setBulkSelections((prev) => {
             const copy = { ...prev };
@@ -527,7 +529,7 @@ const CategoryManager = () => {
               onClick={async () => {
                 try {
                   setIsFetching(true);
-                  await Promise.resolve(fetchCategories?.());
+                  setTimeout(() => window.location.reload(), 1000);
                   toast.success("Refreshed");
                 } catch (e) {
                   toast.error(getErr(e));

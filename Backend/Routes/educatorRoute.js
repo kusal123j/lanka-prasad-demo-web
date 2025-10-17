@@ -20,7 +20,7 @@ import {
   getAllPendingNICVerifications,
   getUserDataByMobileOrNIC,
   isEducator,
-  registerUserManually,
+  registerUserByAdmin,
   TuteTrackingNumberCreateWithExcelSheet,
   unenrollstudentManually,
   updateMainCategory,
@@ -143,7 +143,7 @@ educatorRouter.post(
 educatorRouter.post(
   "/manully-register-user",
   userAuth(["admin"]),
-  registerUserManually
+  registerUserByAdmin
 );
 educatorRouter.post(
   "/manully-unenroll-student",
