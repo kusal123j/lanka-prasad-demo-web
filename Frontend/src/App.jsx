@@ -23,22 +23,25 @@ const App = () => {
   axios.defaults.withCredentials = true; // Ensure axios uses credentials for all requests
   const { isuserloggedin, authLoading } = useContext(AppContext);
 
+  useEffect(() => {
+    const initOneSignal = async () => {
+      await OneSignal.init({
+        appId: "de4366f8-4fe1-4867-9025-36c487d9c9ce",
+        allowLocalhostAsSecureOrigin: true, // required for localhost testing
+        notifyButton: {
+          enable: true, // shows the little bell icon
+        },
+      });
+
+      OneSignal.showSlidedownPrompt(); // optional: asks user for permission
+    };
+
+    initOneSignal();
+  }, []);
   if (authLoading) {
     return <Loading />;
   }
 
-  useEffect(() => {
-    // Ensure this code runs only on the client side
-    if (typeof window !== "undefined") {
-      OneSignal.init({
-        appId: "de4366f8-4fe1-4867-9025-36c487d9c9ce",
-        // You can add other initialization options here
-        notifyButton: {
-          enable: true,
-        },
-      });
-    }
-  }, []);
   return (
     <div>
       <Toaster position="top-center" reverseOrder={true} />
