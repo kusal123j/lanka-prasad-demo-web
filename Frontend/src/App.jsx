@@ -18,7 +18,7 @@ import MakePayment from "./Components/Student/MakePayment";
 import toast, { Toaster } from "react-hot-toast";
 import { useEffect } from "react";
 import { generateToken, onMessageListener } from "./notification/firbase";
-
+import OneSignal from "react-onesignal";
 const App = () => {
   axios.defaults.withCredentials = true; // Ensure axios uses credentials for all requests
   const { isuserloggedin, authLoading } = useContext(AppContext);
@@ -28,25 +28,16 @@ const App = () => {
   }
 
   useEffect(() => {
-    // Request notification permission and get token
-    generateToken().then((token) => {
-      if (token) console.log("FCM Token:", token);
-    });
-
-    // Listen for foreground messages
-    onMessageListener()
-      .then((payload) => {
-        const { title, body } = payload.notification || {};
-        if (title && body) {
-          // Show toast notification directly
-          toast(`${title}: ${body}`, {
-            icon: "🔔",
-            position: "top-right",
-            duration: 5000,
-          });
-        }
-      })
-      .catch((err) => console.log("Foreground listener error:", err));
+    // Ensure this code runs only on the client side
+    if (typeof window !== "undefined") {
+      OneSignal.init({
+        appId: "de4366f8-4fe1-4867-9025-36c487d9c9ce",
+        // You can add other initialization options here
+        notifyButton: {
+          enable: true,
+        },
+      });
+    }
   }, []);
   return (
     <div>
