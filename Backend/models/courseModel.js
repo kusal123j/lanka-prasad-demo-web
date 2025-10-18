@@ -54,6 +54,8 @@ const CourseSchema = new mongoose.Schema(
     //
     courseContent: [ChapterSchema],
     courseResources: [ResourceSchema],
+    zoomMeetingNumber: { type: String },
+    zoomMeetingPasscord: { type: String },
     zoomLink: { type: String },
     youtubeLive: { type: String },
   },

@@ -16,7 +16,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { AppContext } from "../Context/AppContext";
-import heroimage from "../assets/heroimage.jpg";
+import heroimage from "../assets/heroimage.png";
 
 const Steps = {
   CHECK: "check",
@@ -319,8 +319,10 @@ const Login = () => {
       );
 
       if (data.success) {
-        toast.success("Registration successful! Please login.");
-        setStep(Steps.LOGIN);
+        toast.success("Registration successful! Auto-logging you in...");
+        await getUserData();
+        setIsuserloggedIn(true);
+        navigate("/student/dashboard");
       } else {
         toast.error(data.message || "Registration failed");
       }
@@ -470,15 +472,14 @@ const Login = () => {
 
   // Placeholder return (UI/JSX will be provided in the next step)
   return (
-    <div className="h-screen flex overflow-hidden bg-gradient-to-br from-sky-50 via-emerald-50 to-amber-50 text-slate-900 relative">
+    <div className="h-screen flex overflow-hidden  text-slate-900 relative">
       {/* Soft colorful background glows */}
-      <div className="pointer-events-none absolute -top-10 -left-10 w-72 h-72 bg-blue-300/30 rounded-full blur-3xl animate-pulse"></div>
+      <div className="pointer-events-none absolute -top-10 -left-10 w-72 h-72 bg-purple-300/30 rounded-full blur-3xl animate-pulse"></div>
       <div
-        className="pointer-events-none absolute -bottom-16 -right-16 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl animate-pulse"
+        className="pointer-events-none absolute -bottom-16 -right-16 w-96 h-96 bg-orange-300/30 rounded-full blur-3xl animate-pulse"
         style={{ animationDelay: "1.5s" }}
       ></div>
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-amber-300/30 rounded-full blur-[100px]"></div>
-
       {/* Left Side - Hero Image */}
       <div className="hidden md:flex md:w-1/2 relative flex-col items-center h-screen overflow-hidden">
         <img
@@ -486,15 +487,6 @@ const Login = () => {
           alt="Learning Journey"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-sky-600/20 via-emerald-600/20 to-amber-600/20" />
-        <div className="absolute bottom-10 left-8 right-8 bg-white/70 backdrop-blur-md rounded-2xl p-5 shadow-lg">
-          <h3 className="text-xl font-bold text-slate-800">
-            Welcome to your study space
-          </h3>
-          <p className="text-slate-600 text-sm mt-1">
-            Learn smarter, track progress, and access resources anywhere.
-          </p>
-        </div>
       </div>
 
       {/* Right Side - Auth Area */}
@@ -504,7 +496,7 @@ const Login = () => {
           {step === Steps.CHECK && (
             <div className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-xl rounded-3xl p-7">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 via-emerald-600 to-amber-600 bg-clip-text text-transparent">
+                <h2 className="text-3xl font-extrabold bg-[#9337BD] bg-clip-text text-transparent">
                   Get Started
                 </h2>
                 <p className="text-slate-600 mt-1">
@@ -550,7 +542,7 @@ const Login = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-500 hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full bg-[#FF5207] hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -740,7 +732,7 @@ const Login = () => {
                 {/* Next */}
                 <button
                   onClick={goToDetailsStep}
-                  className="w-full bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-500 hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md"
+                  className="w-full bg-[#FF5207] hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md"
                 >
                   Continue
                   <ArrowRight className="w-5 h-5" />
@@ -867,7 +859,7 @@ const Login = () => {
                     onClick={() => {
                       setStep(Steps.Submit_Other_Details);
                     }}
-                    className="w-full bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-500 hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md"
+                    className="w-full bg-[#FF5207] hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md"
                   >
                     Continue
                     <ArrowRight className="w-5 h-5" />
@@ -1042,7 +1034,7 @@ const Login = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-1/2 bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-500 hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-1/2 bg-[#FF5207] hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1085,6 +1077,7 @@ const Login = () => {
                       type="tel"
                       name="tel"
                       id="tel"
+                      disabled
                       autoComplete="tel"
                       placeholder="07XXXXXXXX"
                       maxLength={10}
@@ -1265,7 +1258,7 @@ const Login = () => {
                         pattern="[0-9]*"
                         value={value}
                         maxLength={1}
-                        className="w-12 h-14 text-xl text-center bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        className="w-12 h-14 text-xl text-center bg-white border border-slate-500 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                         ref={(el) => (inputRefs.current[index] = el)}
                         onChange={(e) => handleInput(e, index)}
                         onKeyDown={(e) => handleKeyDown(e, index)}
@@ -1323,7 +1316,7 @@ const Login = () => {
                       onClick={() =>
                         setShowConfirmNewPassword(!showConfirmNewPassword)
                       }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"
                     >
                       {showConfirmNewPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -1339,10 +1332,10 @@ const Login = () => {
                     type="button"
                     onClick={resendResetOTP}
                     disabled={resendTimer > 0 || isResending}
-                    className={`flex-1 border bg-white text-slate-900 border-slate-200 py-3 rounded-2xl font-medium transition-all ${
+                    className={`flex-1 border bg-red-500 text-slate-900 border-slate-200 py-3 rounded-2xl font-medium transition-all ${
                       resendTimer > 0 || isResending
-                        ? "opacity-60 cursor-not-allowed"
-                        : "hover:bg-slate-50"
+                        ? "opacity-90 cursor-not-allowed"
+                        : "hover:bg-red-600"
                     }`}
                   >
                     {resendTimer > 0
@@ -1353,7 +1346,7 @@ const Login = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="flex-1 bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-500 hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="flex-1 bg-blue-500 hover:brightness-110 text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

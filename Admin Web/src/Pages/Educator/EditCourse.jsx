@@ -23,6 +23,8 @@ const EditCourse = () => {
   const [courseDescription, setCourseDescription] = useState("");
   const [resources, setResources] = useState([]);
   const [zoomLink, setzoomLink] = useState("");
+  const [zoomMeetingNumber, setzoomMeetingNumber] = useState("");
+  const [zoomMeetingPassword, setzoomMeetingPassword] = useState("");
   const [displayZoominput, setdisplayZoominput] = useState(false);
   const [youtubeLive, setyoutubeLive] = useState("");
   const [displayYoutubeinput, setdisplayYoutubeinput] = useState(false);
@@ -74,6 +76,8 @@ const EditCourse = () => {
           setIsPublished(course.isPublished ?? false);
           setCourseDescription(course.courseDescription || "");
           setzoomLink(course.zoomLink || "");
+          setzoomMeetingNumber(course.zoomMeetingNumber || "");
+          setzoomMeetingPassword(course.zoomMeetingPasscord || "");
           setyoutubeLive(course.youtubeLive || "");
           setResources(course.courseResources || []);
           setCourseType(course.courseType || "class");
@@ -308,6 +312,8 @@ const EditCourse = () => {
         })),
         isPublished,
         zoomLink,
+        zoomMeetingNumber,
+        zoomMeetingPassword,
         youtubeLive,
         courseType,
         month,
@@ -553,13 +559,29 @@ const EditCourse = () => {
                 <span className="font-medium">Add Zoom Link</span>
               </label>
               {displayZoominput && (
-                <input
-                  type="url"
-                  placeholder="https://zoom.us/..."
-                  value={zoomLink}
-                  onChange={(e) => setzoomLink(e.target.value)}
-                  className="border border-gray-300 rounded-md p-2 w-full"
-                />
+                <>
+                  <input
+                    type="url"
+                    placeholder="https://zoom.us/..."
+                    value={zoomLink}
+                    onChange={(e) => setzoomLink(e.target.value)}
+                    className="border border-gray-300 rounded-md p-2 w-full"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Enter you zoom meeting number"
+                    value={zoomMeetingNumber}
+                    onChange={(e) => setzoomMeetingNumber(e.target.value)}
+                    className="border border-gray-300 rounded-md p-2 w-full"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Enter you zoom meeting passcode/password"
+                    value={zoomMeetingPassword}
+                    onChange={(e) => setzoomMeetingPassword(e.target.value)}
+                    className="border border-gray-300 rounded-md p-2 w-full"
+                  />
+                </>
               )}
             </div>
 

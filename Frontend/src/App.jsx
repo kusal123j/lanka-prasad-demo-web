@@ -15,29 +15,12 @@ import ProfilePage from "./Pages/Student/Profile";
 import Store from "./Pages/Student/Store";
 import CheckoutPage from "./Pages/Student/CheckoutPage";
 import MakePayment from "./Components/Student/MakePayment";
-import toast, { Toaster } from "react-hot-toast";
-import { useEffect } from "react";
-import { generateToken, onMessageListener } from "./notification/firbase";
-import OneSignal from "react-onesignal";
+import { Toaster } from "react-hot-toast";
+
 const App = () => {
   axios.defaults.withCredentials = true; // Ensure axios uses credentials for all requests
   const { isuserloggedin, authLoading } = useContext(AppContext);
 
-  useEffect(() => {
-    const initOneSignal = async () => {
-      await OneSignal.init({
-        appId: "de4366f8-4fe1-4867-9025-36c487d9c9ce",
-        allowLocalhostAsSecureOrigin: true, // required for localhost testing
-        notifyButton: {
-          enable: true, // shows the little bell icon
-        },
-      });
-
-      OneSignal.showSlidedownPrompt(); // optional: asks user for permission
-    };
-
-    initOneSignal();
-  }, []);
   if (authLoading) {
     return <Loading />;
   }
@@ -58,6 +41,7 @@ const App = () => {
           element={isuserloggedin ? <Student /> : <Navigate to="/" />}
         >
           <Route path="dashboard" element={<SDashboard />} />
+
           <Route path="profile" element={<ProfilePage />} />
           <Route path="make-payment" element={<MakePayment />} />
           <Route path="my-enrollments" element={<MyEnrollements />} />

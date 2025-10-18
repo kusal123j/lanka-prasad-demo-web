@@ -19,6 +19,7 @@ import {
 } from "../Controllers/paymentController.js";
 import upload from "../config/multer.js";
 import { getQuizzesByCourse } from "../Controllers/quizeController.js";
+import { generateZoomSignature } from "../Controllers/zoomController.js";
 const userRouter = express.Router();
 userRouter.get("/data", userAuth(), getuserdata);
 userRouter.get("/profile", userAuth(), getProfileData);
@@ -45,4 +46,5 @@ userRouter.get("/getlastvideotime", userAuth(), getLastVideoposition);
 userRouter.post("/updatevideotime", userAuth(), updateVideotime);
 userRouter.post("/finishvideo", userAuth(), finishVideotime);
 userRouter.get("/nic-info", userAuth(), getUserNICImage);
+userRouter.post("/zoom/signature", userAuth(), generateZoomSignature);
 export default userRouter;

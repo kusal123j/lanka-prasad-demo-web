@@ -328,6 +328,8 @@ export const editCourse = async (req, res) => {
       "courseContent",
       "courseResources",
       "zoomLink",
+      "zoomMeetingNumber",
+      "zoomMeetingPasscord",
       "youtubeLive",
     ];
 
