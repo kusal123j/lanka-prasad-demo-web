@@ -1,7 +1,7 @@
 import { KJUR } from "jsrsasign";
-import Course from "../models/courseModel";
-import userModel from "../models/userModel";
-import Enrollment from "../models/enrollementModel";
+import userModel from "../models/userModel.js";
+import Course from "../models/courseModel.js";
+import Enrollment from "../models/enrollementModel.js";
 
 export const generateZoomSignature = async (req, res) => {
   try {

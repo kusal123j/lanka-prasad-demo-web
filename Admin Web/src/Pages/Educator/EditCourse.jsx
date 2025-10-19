@@ -313,7 +313,7 @@ const EditCourse = () => {
         isPublished,
         zoomLink,
         zoomMeetingNumber,
-        zoomMeetingPassword,
+        zoomMeetingPasscord: zoomMeetingPassword,
         youtubeLive,
         courseType,
         month,

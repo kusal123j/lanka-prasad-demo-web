@@ -23,7 +23,7 @@ import BulkEnrollment from "./Pages/Educator/BulkEnrolle";
 import NICVerify from "./Pages/Educator/NICVerify";
 import BulkTuteTracking from "./Pages/Educator/BulkTuteTracking";
 import BulkUnenrollment from "./Pages/Educator/BulkUnenrollment";
-
+import PremiumPricing from "./Pages/Educator/PremiumPricing";
 const App = () => {
   axios.defaults.withCredentials = true; // Ensure axios uses credentials for all requests
   const { authLoading, isEducator } = useContext(AppContext);
@@ -58,6 +58,7 @@ const App = () => {
           <Route path="user-register" element={<ManullStudentRegister />} />
           <Route path="tute-center" element={<TuteCenter />} />
           <Route path="category" element={<CategoryManager />} />
+          <Route path="pricing" element={<PremiumPricing />} />
           <Route path="add-quize" element={<AddQuize />} />
           <Route path="edit-course/:id" element={<EditCourse />} />
           <Route path="student-enrollement" element={<StudentEnrollement />} />

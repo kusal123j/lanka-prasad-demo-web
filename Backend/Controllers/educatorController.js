@@ -456,6 +456,34 @@ export const getallCoursesforeducator = async (req, res) => {
   }
 };
 
+export const getSMSCountByDates = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.body;
+
+    if (!startDate) {
+      return res.status(400).json({ message: "Start date is required" });
+    }
+
+    // If endDate is not provided, use startDate as the single day
+    const queryEndDate = endDate || startDate;
+
+    // Fetch the SMS counts
+    const smsCounts = await smsCounterModel
+      .find({
+        date: { $gte: startDate, $lte: queryEndDate },
+      })
+      .sort({ date: 1 });
+
+    // Calculate total SMS in the range
+    const totalCount = smsCounts.reduce((acc, item) => acc + item.count, 0);
+
+    res.status(200).json({ totalCount, smsCounts });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // is educator
 export const isEducator = async (req, res) => {
   res.json({ success: true });

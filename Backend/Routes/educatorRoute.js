@@ -18,6 +18,7 @@ import {
   exportVideoWatchesPdf,
   getallCoursesforeducator,
   getAllPendingNICVerifications,
+  getSMSCountByDates,
   getUserDataByMobileOrNIC,
   isEducator,
   registerUserByAdmin,
@@ -70,6 +71,8 @@ educatorRouter.post(
   userAuth(["admin"]),
   updateNICVerifyStatus
 );
+
+educatorRouter.post("/get-all-sms", userAuth(["admin"]), getSMSCountByDates);
 
 educatorRouter.get(
   "/pending-nic-verifications",

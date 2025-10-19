@@ -26,7 +26,7 @@ const Player = () => {
   const [lectureTitle, setLectureTitle] = useState("");
   const [showResources, setShowResources] = useState(false);
   const [selectedLecture, setSelectedLecture] = useState(null);
-
+  const [showIframe, setShowIframe] = useState(false);
   useEffect(() => {
     if (!Array.isArray(enrolledCourses) || !courseId) return;
     const course = enrolledCourses.find((c) => c?.course?._id === courseId);
@@ -93,6 +93,21 @@ const Player = () => {
     } catch (err) {
       console.error("Invalid URL:", url, err);
     }
+  };
+
+  const ZoomIframe = (courseID) => {
+    return (
+      <div style={{ width: "100%", height: "100vh" }}>
+        <iframe
+          src={`https://zoom.lankaprasad.com/zoom/${courseID}`}
+          title="Zoom Meeting"
+          width="100%"
+          height="100%"
+          style={{ border: "none" }}
+          allowFullScreen
+        ></iframe>
+      </div>
+    );
   };
 
   return courseData ? (
@@ -259,14 +274,27 @@ const Player = () => {
             <div className="flex flex-wrap gap-3 sm:gap-4 mb-8">
               {courseData.zoomLink && (
                 <button
-                  onClick={() => openExternalLink(courseData.zoomLink)}
+                  onClick={() => setShowIframe(true)}
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 sm:px-5 py-2.5 hover:bg-blue-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                 >
                   <Users className="w-5 h-5" />
                   Join Live Session
                 </button>
               )}
-
+              {showIframe && (
+                <div
+                  style={{ width: "100%", height: "100vh", marginTop: "20px" }}
+                >
+                  <iframe
+                    src={`https://zoom.lankaprasad.com/zoom/${courseId}`}
+                    title="Zoom Meeting"
+                    width="100%"
+                    height="100%"
+                    style={{ border: "none" }}
+                    allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-read; clipboard-write"
+                  ></iframe>
+                </div>
+              )}
               {courseData.youtubeLive && (
                 <button
                   onClick={() => {

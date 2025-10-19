@@ -3,6 +3,7 @@ import userModel from "../models/userModel.js";
 import generateStudentId from "../utils/generateStudentId.js";
 import { sendSMSWithRetry } from "../utils/smsService.js";
 import redis from "../utils/redisClient.js";
+import smsCounterModel from "../models/smsModel.js";
 
 const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const allowedExamYears = [
@@ -451,6 +452,13 @@ export const sendResetPasswordOTP = async (req, res) => {
 
     try {
       await sendSMSWithRetry(user.phonenumber, "TEAMICT", message, 5, 3000);
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+      const sms = await smsCounterModel.findOneAndUpdate(
+        { date: today },
+        { $inc: { count: 1 } },
+        { new: true, upsert: true } // create if not exists
+      );
       return res.json({ success: true, message: "OTP sent successfully" });
     } catch (smsError) {
       console.warn("Failed to send OTP SMS after retries:", smsError.message);
