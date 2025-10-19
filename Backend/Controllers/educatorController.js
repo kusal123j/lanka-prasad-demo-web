@@ -17,6 +17,7 @@ import XLSX from "xlsx";
 import mongoose from "mongoose";
 import { sendSMSWithRetry } from "../utils/smsService.js";
 import paymentModel from "../models/paymentModel.js";
+import smsCounterModel from "../models/smsModel.js";
 
 // Fix __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
